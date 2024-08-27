@@ -36,5 +36,7 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    # Запуск основной функции
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        print(f"Ошибка при запуске бота: {e}")
