@@ -60,8 +60,11 @@ async def main():
 
 # Запуск основной функции
 if __name__ == "__main__":
+    # Используем текущий цикл событий
     loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(main())
-    except KeyboardInterrupt:
-        print("Bot stopped by user")
+    except Exception as e:
+        print(f"Ошибка: {e}")
+    finally:
+        loop.close()
