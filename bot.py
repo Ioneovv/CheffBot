@@ -1,3 +1,4 @@
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler
 
@@ -12,5 +13,17 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    try:
+        # Проверяем, запущен ли цикл событий
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # Нет запущенного цикла
+        loop = None
+
+    if loop and loop.is_running():
+        # Если цикл событий уже запущен, используем его для запуска main()
+        print("Event loop is running. Using current loop to run the bot.")
+        loop.create_task(main())
+    else:
+        # Если цикл событий не запущен, запускаем его
+        print("No running event loop. Using asyncio.run() to start the bot.")
+        asyncio.run(main())
