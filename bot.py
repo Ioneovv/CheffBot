@@ -1,8 +1,8 @@
-import asyncio
 import json
 import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
+import asyncio
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
@@ -55,7 +55,9 @@ async def main():
     # Регистрация команды поиска
     application.add_handler(CommandHandler("search", search))
 
+    # Запуск бота
     await application.run_polling()
 
+# Запуск основной функции
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
