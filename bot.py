@@ -3,6 +3,7 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 import json
 import os
 import random
+import asyncio
 
 # Получите токен из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -12,6 +13,8 @@ def load_recipes():
     try:
         with open('recipes.json', 'r') as f:
             recipes = json.load(f)
+        if not recipes:
+            print("Файл рецептов пуст.")
         return recipes
     except json.JSONDecodeError as e:
         print(f"Ошибка при чтении JSON файла: {e}")
@@ -53,13 +56,10 @@ async def main():
         print(f"Произошла ошибка при запуске бота: {e}")
 
 if __name__ == '__main__':
-    import asyncio
-
-    # Проверяем, не запущен ли уже цикл событий
     try:
         asyncio.get_event_loop().run_until_complete(main())
     except RuntimeError as e:
-        if str(e) == "This event loop is already running":
-            print("Цикл событий уже запущен. Используйте asyncio.run() для запуска в других средах.")
+        if str(e) == 'This event loop is already running':
+            print("Цикл событий уже запущен.")
         else:
             raise e
