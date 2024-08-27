@@ -1,58 +1,37 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram import Bot
+from telegram.ext import Updater, CommandHandler
 import json
+import os
 
-# Загрузите рецепты из файла
-with open('recipes.json', 'r', encoding='utf-8') as f:
-    recipes = json.load(f)
+# Получите токен из переменных окружения
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-def start(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("Поиск рецепта", callback_data='search')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Привет! Нажмите кнопку ниже, чтобы начать поиск рецептов.', reply_markup=reply_markup)
-
-def button(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-
-    if query.data == 'search':
-        query.edit_message_text(text="Введите ингредиенты для поиска (через запятую):")
-
-        # Установите состояние ожидания ингредиентов
-        context.user_data['waiting_for_ingredients'] = True
-
-def handle_message(update: Update, context: CallbackContext):
-    if context.user_data.get('waiting_for_ingredients'):
-        ingredients = update.message.text.strip().split(',')
-        ingredients = [ing.strip().lower() for ing in ingredients]
-
-        # Поиск рецептов
-        matching_recipes = []
-        for recipe in recipes:
-            if all(ingredient in recipe['ingredients'] for ingredient in ingredients):
-                matching_recipes.append(f"Название: {recipe['title']}\nИнструкция: {recipe['instructions']}")
-
-        if matching_recipes:
-            update.message.reply_text('\n\n'.join(matching_recipes))
-        else:
-            update.message.reply_text("Рецепты с такими ингредиентами не найдены.")
-
-        # Сброс состояния ожидания
-        context.user_data['waiting_for_ingredients'] = False
+# Функция для отправки рецепта
+def send_recipe(update, context):
+    # Чтение рецептов из файла
+    try:
+        with open('recipes.json', 'r') as f:
+            recipes = json.load(f)
+        # Предположим, что recipes - это список рецептов
+        # Выберите случайный рецепт
+        import random
+        recipe = random.choice(recipes)
+        message = f"Название: {recipe['title']}\nИнгредиенты: {recipe['ingredients']}\nИнструкция: {recipe['instructions']}"
+        bot.send_message(chat_id=update.effective_chat.id, text=message)
+    except Exception as e:
+        bot.send_message(chat_id=update.effective_chat.id, text=f"Ошибка: {e}")
 
 def main():
-    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN", use_context=True)
+    updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(button))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    # Обработчик команд
+    dispatcher.add_handler(CommandHandler('recipe', send_recipe))
 
+    # Запуск бота
     updater.start_polling()
     updater.idle()
 
 if __name__ == '__main__':
     main()
-
