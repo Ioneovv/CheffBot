@@ -12,6 +12,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Download recipes.json
+      run: |
+        wget -O recipes.json "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ8PFCH5WC-6G-Yb"
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
