@@ -1,37 +1,45 @@
-from telegram import Bot
-from telegram.ext import Updater, CommandHandler
+from telegram import Update
+from telegram.ext import Application, CommandHandler, CallbackContext
 import json
 import os
+import random
 
 # Получите токен из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# Функция для отправки рецепта
-def send_recipe(update, context):
-    # Чтение рецептов из файла
+# Чтение рецептов из файла
+def load_recipes():
     try:
         with open('recipes.json', 'r') as f:
             recipes = json.load(f)
-        # Предположим, что recipes - это список рецептов
-        # Выберите случайный рецепт
-        import random
+        return recipes
+    except json.JSONDecodeError as e:
+        print(f"Ошибка при чтении JSON файла: {e}")
+        return []
+    except FileNotFoundError as e:
+        print(f"Файл не найден: {e}")
+        return []
+
+recipes = load_recipes()
+
+# Обработчик команды /recipe
+async def send_recipe(update: Update, context: CallbackContext):
+    if recipes:
         recipe = random.choice(recipes)
-        message = f"Название: {recipe['title']}\nИнгредиенты: {recipe['ingredients']}\nИнструкция: {recipe['instructions']}"
-        bot.send_message(chat_id=update.effective_chat.id, text=message)
-    except Exception as e:
-        bot.send_message(chat_id=update.effective_chat.id, text=f"Ошибка: {e}")
+        message = f"Название: {recipe.get('title', 'Неизвестно')}\nИнгредиенты: {recipe.get('ingredients', 'Неизвестно')}\nИнструкция: {recipe.get('instructions', 'Неизвестно')}"
+        await update.message.reply_text(message)
+    else:
+        await update.message.reply_text("Рецепты не загружены или файл пуст.")
 
-def main():
-    updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+# Основная функция
+async def main():
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Обработчик команд
-    dispatcher.add_handler(CommandHandler('recipe', send_recipe))
+    application.add_handler(CommandHandler("recipe", send_recipe))
 
     # Запуск бота
-    updater.start_polling()
-    updater.idle()
+    await application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
