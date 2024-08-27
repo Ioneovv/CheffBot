@@ -14,7 +14,12 @@ jobs:
 
     - name: Download recipes.json
       run: |
-        wget -O recipes.json "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ8PFCH5WC-6G-Yb"
+        wget --quiet --output-document=recipes.json "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ8PFCH5WC-6G-Yb"
+
+    - name: Verify recipes.json
+      run: |
+        ls -l recipes.json
+        head -n 10 recipes.json
 
     - name: Set up Python
       uses: actions/setup-python@v4
