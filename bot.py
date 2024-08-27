@@ -19,6 +19,9 @@ def load_recipes():
     except FileNotFoundError as e:
         print(f"Файл не найден: {e}")
         return []
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+        return []
 
 recipes = load_recipes()
 
@@ -26,20 +29,37 @@ recipes = load_recipes()
 async def send_recipe(update: Update, context: CallbackContext):
     if recipes:
         recipe = random.choice(recipes)
-        message = f"Название: {recipe.get('title', 'Неизвестно')}\nИнгредиенты: {recipe.get('ingredients', 'Неизвестно')}\nИнструкция: {recipe.get('instructions', 'Неизвестно')}"
+        message = (
+            f"Название: {recipe.get('title', 'Неизвестно')}\n"
+            f"Ингредиенты: {recipe.get('ingredients', 'Неизвестно')}\n"
+            f"Инструкция: {recipe.get('instructions', 'Неизвестно')}"
+        )
         await update.message.reply_text(message)
     else:
         await update.message.reply_text("Рецепты не загружены или файл пуст.")
 
 # Основная функция
 async def main():
+    if not TELEGRAM_BOT_TOKEN:
+        raise ValueError("Отсутствует токен бота. Убедитесь, что TELEGRAM_BOT_TOKEN установлен в переменных окружения.")
+    
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
     application.add_handler(CommandHandler("recipe", send_recipe))
 
     # Запуск бота
-    await application.run_polling()
+    try:
+        await application.run_polling()
+    except Exception as e:
+        print(f"Произошла ошибка при запуске бота: {e}")
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main())
+
+    # Проверяем, не запущен ли уже цикл событий
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+    except RuntimeError as e:
+        if str(e) == "This event loop is already running":
+            print("Цикл событий уже запущен. Используйте asyncio.run() для запуска в других средах.")
+        else:
+            raise e
