@@ -1,9 +1,10 @@
 import requests
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 
 # URL для загрузки рецептов (замените на свой)
-RECIPE_URL = 'https://drive.google.com/file/d/1wOfzPT_CbAoa6lZNkYheeO1nYoJz9fsM/view?usp=drive_link'
+RECIPE_URL = 'https://drive.google.com/file/d/1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em/view?usp=drive_link'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
@@ -40,7 +41,7 @@ def load_recipes():
     try:
         response = requests.get(RECIPE_URL)
         response.raise_for_status()
-        return response.json()  # Предполагается, что возвращается список рецептов, не словарь
+        return response.json()  # Предполагается, что возвращается список рецептов
     except requests.RequestException as e:
         print(f"Failed to load recipes: {e}")
         return []
@@ -131,5 +132,4 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == '__main__':
-    import asyncio
     asyncio.run(main())
