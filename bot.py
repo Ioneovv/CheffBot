@@ -70,17 +70,22 @@ async def handle_message(update: Update, context: CallbackContext):
 async def main():
     # Создание экземпляра приложения и настройка токена
     application = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+    print("Bot application created.")
 
     # Обработчики команд и сообщений
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("Handlers added.")
 
     # Запуск бота
     await application.initialize()
+    print("Bot initialized.")
     await application.start()
+    print("Bot started.")
     await application.updater.start_polling()
     await application.stop()
+    print("Bot stopped.")
 
 if __name__ == '__main__':
     asyncio.run(main())
