@@ -27,7 +27,7 @@ def format_recipe(recipe):
     recipe_text += "📝 **Ингредиенты:**\n"
     for ingredient in recipe.get('ingredients', []):
         amount = ingredient.get('amount', '')
-        recipe_text += f"- {ingredient['ingredient']} ({amount})\n"
+        recipe_text += f"🔸 {ingredient['ingredient']:20} {amount}\n"
     recipe_text += "\n🧑‍🍳 **Приготовление:**\n"
     for i, step in enumerate(recipe.get('instructions', []), start=1):
         recipe_text += f"{i}. {step}\n"
@@ -53,8 +53,10 @@ async def button(update: Update, context: CallbackContext):
 
             await query.message.delete()
 
-            await query.message.reply_text(recipe_text, parse_mode='Markdown')
+            # Отправляем рецепт
+            await update.message.reply_text(recipe_text, parse_mode='Markdown')
 
+            # Отправляем кнопки для поиска
             keyboard = [
                 [InlineKeyboardButton("🔍 Поиск по названию", callback_data='search_by_title')],
                 [InlineKeyboardButton("🍴 Поиск по ингредиентам", callback_data='search_by_ingredients')]
