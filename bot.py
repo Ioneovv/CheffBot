@@ -3,8 +3,8 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
-# Загрузите обновленный JSON-файл с рецептами
-RECIPE_URL = "https://example.com/recipes_with_categories.json"
+# Прямая ссылка на JSON-файл на Google Drive
+RECIPE_URL = "https://drive.google.com/uc?export=download&id=16j85IZTSaOLBD5AqHWJ5mux50jXZ6UxT"
 
 def load_recipes():
     try:
