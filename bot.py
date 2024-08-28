@@ -10,10 +10,10 @@ async def main():
 
     application.add_handler(CommandHandler("start", start))
 
-    await application.initialize()  # Инициализируем приложение
-    await application.start()        # Запускаем приложение
-    await application.updater.start_polling()  # Запускаем polling
-    await application.updater.idle()  # Ждём завершения работы
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    await application.stop()  # Останавливаем бота при завершении
 
 if __name__ == '__main__':
     try:
