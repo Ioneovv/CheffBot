@@ -34,7 +34,10 @@ async def button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     
-      elif query.data == 'search_by_ingredients':
+    if query.data == 'search_by_title':
+        await query.edit_message_text(text="Введите название рецепта для поиска:")
+        context.user_data['search_type'] = 'search_by_title'
+    elif query.data == 'search_by_ingredients':
         await query.edit_message_text(text="Введите ингредиент для поиска:")
         context.user_data['search_type'] = 'search_by_ingredients'
 
