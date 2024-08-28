@@ -2,7 +2,7 @@ import asyncio
 import json
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
 # Загрузите JSON-файл с рецептами
 RECIPE_URL = "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ8PFCH5WC-6G-Yb"
@@ -37,10 +37,10 @@ async def button(update: Update, context: CallbackContext):
     
     if query.data == 'search_by_title':
         await query.edit_message_text(text="Введите название рецепта для поиска:")
-        return 'search_by_title'
+        context.user_data['search_type'] = 'search_by_title'
     elif query.data == 'search_by_ingredients':
         await query.edit_message_text(text="Введите ингредиент для поиска:")
-        return 'search_by_ingredients'
+        context.user_data['search_type'] = 'search_by_ingredients'
 
 async def handle_message(update: Update, context: CallbackContext):
     search_type = context.user_data.get('search_type')
