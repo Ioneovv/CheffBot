@@ -1,5 +1,4 @@
 import asyncio
-import json
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
@@ -9,7 +8,7 @@ RECIPE_URL = "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ
 
 def load_recipes():
     response = requests.get(RECIPE_URL)
-    response.raise_for_status()  # Убедитесь, что запрос прошел успешно
+    response.raise_for_status()
     return response.json()
 
 recipes = load_recipes()
@@ -35,46 +34,50 @@ async def button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     
-    if query.data == 'search_by_title':
-        await query.edit_message_text(text="Введите название рецепта для поиска:")
-        context.user_data['search_type'] = 'search_by_title'
-    elif query.data == 'search_by_ingredients':
+      elif query.data == 'search_by_ingredients':
         await query.edit_message_text(text="Введите ингредиент для поиска:")
         context.user_data['search_type'] = 'search_by_ingredients'
 
 async def handle_message(update: Update, context: CallbackContext):
+    user_input = update.message.text
     search_type = context.user_data.get('search_type')
-    query = update.message.text
-    if search_type:
-        results = search_recipes(query)
+
+    if search_type == 'search_by_title':
+        results = search_recipes(user_input)
         if results:
-            response = "\n\n".join(f"Title: {recipe['title']}\nIngredients: {', '.join(ing['ingredient'] for ing in recipe['ingredients'])}" for recipe in results)
+            message = "Результаты поиска по названию:\n"
+            for recipe in results:
+                message += f"Название: {recipe['title']}\nИнгредиенты: {', '.join(ing['ingredient'] for ing in recipe['ingredients'])}\n\n"
         else:
-            response = "Ничего не найдено."
-        
-        await update.message.reply_text(response)
-        context.user_data.pop('search_type', None)  # Очистите тип поиска
+            message = "Нет рецептов, соответствующих вашему запросу."
+        await update.message.reply_text(message)
+        context.user_data['search_type'] = None  # Сбросить тип поиска
+
+    elif search_type == 'search_by_ingredients':
+        results = search_recipes(user_input)
+        if results:
+            message = "Результаты поиска по ингредиентам:\n"
+            for recipe in results:
+                message += f"Название: {recipe['title']}\nИнгредиенты: {', '.join(ing['ingredient'] for ing in recipe['ingredients'])}\n\n"
+        else:
+            message = "Нет рецептов, соответствующих вашему запросу."
+        await update.message.reply_text(message)
+        context.user_data['search_type'] = None  # Сбросить тип поиска
 
 async def main():
+    # Создание экземпляра приложения и настройка токена
     application = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
+    # Обработчики команд и сообщений
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    # Запуск бота
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
     await application.stop()
 
 if __name__ == '__main__':
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    if loop.is_running():
-        loop.create_task(main())
-    else:
-        asyncio.run(main())
+    asyncio.run(main())
