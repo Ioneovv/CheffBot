@@ -43,15 +43,15 @@ recipes = {
     }
 }
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Введите название рецепта или ингредиент для поиска:')
+async def start(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text('Введите название рецепта или ингредиент для поиска:')
 
-def search_recipe(update: Update, context: CallbackContext) -> None:
+async def search_recipe(update: Update, context: CallbackContext) -> None:
     query = update.message.text
     matching_recipes = [r for r in recipes if query.lower() in r.lower()]
     
     if not matching_recipes:
-        update.message.reply_text('Ничего не найдено. Попробуйте снова.')
+        await update.message.reply_text('Ничего не найдено. Попробуйте снова.')
         return
 
     keyboard = []
@@ -62,11 +62,11 @@ def search_recipe(update: Update, context: CallbackContext) -> None:
     if len(matching_recipes) > 5:
         keyboard.append([InlineKeyboardButton('Еще', callback_data='more_recipes')])
 
-    update.message.reply_text('Выберите рецепт:', reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text('Выберите рецепт:', reply_markup=InlineKeyboardMarkup(keyboard))
 
-def handle_query(update: Update, context: CallbackContext) -> None:
+async def handle_query(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    query.answer()
+    await query.answer()
     data = query.data
 
     if data.startswith('recipe_'):
@@ -78,13 +78,13 @@ def handle_query(update: Update, context: CallbackContext) -> None:
             instructions = '\n'.join(recipe['instructions'])
             
             recipe_message = f'Ингредиенты:\n{ingredients}\n\nПриготовление:\n{instructions}'
-            query.edit_message_text(recipe_message)
+            await query.edit_message_text(recipe_message)
 
             # Sending a new search prompt and removing previous messages
-            query.message.reply_text('Введите название рецепта или ингредиент для поиска:')
-            context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+            await query.message.reply_text('Введите название рецепта или ингредиент для поиска:')
+            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         else:
-            query.edit_message_text('Рецепт не найден.')
+            await query.edit_message_text('Рецепт не найден.')
 
     elif data == 'more_recipes':
         # Handle loading more recipes (you'll need to implement this part based on your own requirements)
