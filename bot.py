@@ -15,10 +15,11 @@ recipes = load_recipes()
 
 def search_recipes(query):
     results = []
+    query = query.lower()
     for recipe in recipes:
         title = recipe.get('title', '').lower()
         ingredients = [ing['ingredient'].lower() for ing in recipe.get('ingredients', [])]
-        if query.lower() in title or any(query.lower() in ing for ing in ingredients):
+        if query in title or any(query in ing for ing in ingredients):
             results.append(recipe)
     return results
 
@@ -89,7 +90,7 @@ async def button(update: Update, context: CallbackContext):
             context.user_data['search_type'] = command
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in button handler: {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
 
 async def handle_message(update: Update, context: CallbackContext):
