@@ -23,7 +23,7 @@ def search_recipes(query):
     return results
 
 def format_recipe(recipe):
-    recipe_text = f"**{recipe['title']}**\n\n"
+    recipe_text = f"*{recipe['title']}*\n\n"
     recipe_text += "Ингредиенты:\n"
     for ingredient in recipe.get('ingredients', []):
         quantity = ingredient.get('quantity', 'не указано')
@@ -79,7 +79,7 @@ async def button(update: Update, context: CallbackContext):
 
         context.user_data['current_results'] = more_results
         keyboard = [
-            [InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(more_results)]
+            [InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(more_results)]
         ]
 
         if len(results) > offset + 5:
@@ -105,7 +105,7 @@ async def handle_message(update: Update, context: CallbackContext):
             return
 
         keyboard = [
-            [InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(results[:5])]
+            [InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(results[:5])]
         ]
         
         if len(results) > 5:
