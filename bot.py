@@ -37,14 +37,19 @@ async def button(update: Update, context: CallbackContext):
     if query.data.startswith('recipe_'):
         # Обработка нажатия кнопки рецепта
         recipe_index = int(query.data.split('_')[1])
-        recipe = recipes[recipe_index]
-        recipe_text = f"**{recipe['title']}**\n\n"
-        recipe_text += f"Ингредиенты:\n"
-        for ingredient in recipe.get('ingredients', []):
-            quantity = ingredient.get('quantity', '')
-            recipe_text += f"- {ingredient['ingredient']} ({quantity})\n"
-        recipe_text += f"\nПриготовление:\n{recipe.get('instructions', '')}"
-        await query.message.reply_text(recipe_text, parse_mode='Markdown')
+        if recipe_index < len(recipes):
+            recipe = recipes[recipe_index]
+            recipe_text = f"**{recipe['title']}**\n\n"
+            recipe_text += f"Ингредиенты:\n"
+            for ingredient in recipe.get('ingredients', []):
+                quantity = ingredient.get('quantity', '')
+                recipe_text += f"- {ingredient['ingredient']} ({quantity})\n"
+            recipe_text += f"\nПриготовление:\n"
+            for i, step in enumerate(recipe.get('instructions', []), start=1):
+                recipe_text += f"{i}. {step}\n"
+            await query.message.reply_text(recipe_text, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("Ошибка: Рецепт не найден.")
         return
 
     if query.data.startswith('more_'):
