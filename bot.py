@@ -42,30 +42,23 @@ async def button(update: Update, context: CallbackContext):
         context.user_data['search_type'] = 'search_by_ingredients'
 
 async def handle_message(update: Update, context: CallbackContext):
-    user_input = update.message.text
+    query = update.message.text
     search_type = context.user_data.get('search_type')
 
     if search_type == 'search_by_title':
-        results = search_recipes(user_input)
-        if results:
-            message = "Результаты поиска по названию:\n"
-            for recipe in results:
-                message += f"Название: {recipe['title']}\nИнгредиенты: {', '.join(ing['ingredient'] for ing in recipe['ingredients'])}\n\n"
-        else:
-            message = "Нет рецептов, соответствующих вашему запросу."
-        await update.message.reply_text(message)
-        context.user_data['search_type'] = None  # Сбросить тип поиска
-
+        results = search_recipes(query)
+        response = "Результаты поиска по названию:\n"
+        for recipe in results:
+            response += f"{recipe['title']}\n"
+        await update.message.reply_text(response if results else "Ничего не найдено.")
     elif search_type == 'search_by_ingredients':
-        results = search_recipes(user_input)
-        if results:
-            message = "Результаты поиска по ингредиентам:\n"
-            for recipe in results:
-                message += f"Название: {recipe['title']}\nИнгредиенты: {', '.join(ing['ingredient'] for ing in recipe['ingredients'])}\n\n"
-        else:
-            message = "Нет рецептов, соответствующих вашему запросу."
-        await update.message.reply_text(message)
-        context.user_data['search_type'] = None  # Сбросить тип поиска
+        results = search_recipes(query)
+        response = "Результаты поиска по ингредиентам:\n"
+        for recipe in results:
+            response += f"{recipe['title']}\n"
+        await update.message.reply_text(response if results else "Ничего не найдено.")
+    else:
+        await update.message.reply_text("Пожалуйста, выберите способ поиска.")
 
 async def main():
     # Создание экземпляра приложения и настройка токена
@@ -84,7 +77,8 @@ async def main():
     await application.start()
     print("Bot started.")
     await application.updater.start_polling()
-    await application.stop()
+    print("Bot is polling.")
+    await asyncio.Event().wait()  # Ожидание бесконечно
     print("Bot stopped.")
 
 if __name__ == '__main__':
