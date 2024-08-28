@@ -1,6 +1,7 @@
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
+import asyncio
 
 # Прямая ссылка для загрузки рецептов
 RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
@@ -39,6 +40,9 @@ CATEGORIES = {
     'Завтраки': ['завтрак', 'сырники', 'каша', 'омлет', 'яичница', 'блины', 'оладьи', 'гренки', 'пудинг', 'йогурт', 'смесь злаков', 'мюсли'],
     'Паста': ['спагетти', 'лазанья', 'спиральки', 'фарфале', 'карбонара', 'фитучини', 'ньоки', 'птим птим', 'орзо', 'ризотто', 'тельятели']
 }
+
+# Максимальное количество кнопок на странице
+BUTTONS_PER_PAGE = 5
 
 def load_recipes():
     try:
@@ -81,14 +85,16 @@ async def start(update: Update, context: CallbackContext):
         return
 
     categories = get_categories()
-    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}')] for category in categories]
+    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
 async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    category = query.data.split('_')[1]
+    data = query.data.split('_')
+    category = data[1]
+    page = int(data[2])
 
     recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
 
@@ -96,7 +102,17 @@ async def category_button(update: Update, context: CallbackContext):
         await query.message.reply_text("Нет рецептов в этой категории.")
         return
 
-    keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{category}_{i}')] for i, recipe in enumerate(recipes_in_category)]
+    start_index = page * BUTTONS_PER_PAGE
+    end_index = start_index + BUTTONS_PER_PAGE
+    recipes_page = recipes_in_category[start_index:end_index]
+
+    keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{category}_{i + start_index}')] for i, recipe in enumerate(recipes_page)]
+    if end_index < len(recipes_in_category):
+        keyboard.append([InlineKeyboardButton("➡️ Следующая страница", callback_data=f'category_{category}_{page + 1}')])
+
+    if page > 0:
+        keyboard.append([InlineKeyboardButton("⬅️ Предыдущая страница", callback_data=f'category_{category}_{page - 1}')])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.message.edit_text("Выберите рецепт:", reply_markup=reply_markup)
 
@@ -117,7 +133,7 @@ async def recipe_button(update: Update, context: CallbackContext):
             await query.message.delete()
             await query.message.reply_text(recipe_text, parse_mode='Markdown')
 
-            keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}')] for cat in get_categories()]
+            keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0')] for cat in get_categories()]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text("Выберите категорию рецептов:", reply_markup=reply_markup)
         else:
@@ -139,5 +155,4 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == '__main__':
-    import asyncio
     asyncio.run(main())
