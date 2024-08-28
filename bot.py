@@ -6,7 +6,7 @@ async def start(update: Update, context):
     await update.message.reply_text("Привет! Я бот.")
 
 async def main():
-    application = Application.builder().token("YOUR_BOT_TOKEN").build()
+    application = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     application.add_handler(CommandHandler("start", start))
 
