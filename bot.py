@@ -41,24 +41,45 @@ async def button(update: Update, context: CallbackContext):
         recipe_text = f"**{recipe['title']}**\n\n"
         recipe_text += f"Ингредиенты:\n"
         for ingredient in recipe.get('ingredients', []):
-            recipe_text += f"- {ingredient['ingredient']} ({ingredient.get('quantity', '')})\n"
+            quantity = ingredient.get('quantity', '')
+            recipe_text += f"- {ingredient['ingredient']} ({quantity})\n"
         recipe_text += f"\nПриготовление:\n{recipe.get('instructions', '')}"
         await query.message.reply_text(recipe_text, parse_mode='Markdown')
         return
 
-    if query.data == 'search_by_title':
-        await query.edit_message_text(text="Введите название рецепта для поиска:")
-        context.user_data['search_type'] = 'search_by_title'
-    elif query.data == 'search_by_ingredients':
-        await query.edit_message_text(text="Введите ингредиент для поиска:")
-        context.user_data['search_type'] = 'search_by_ingredients'
+    if query.data.startswith('more_'):
+        # Обработка нажатия кнопки "Еще"
+        data = query.data.split('_')
+        search_type = data[1]
+        query_text = data[2]
+        offset = int(data[3])
+        
+        results = search_recipes(query_text)[offset:offset+5]
+        if not results:
+            await query.edit_message_text("Ничего не найдено.")
+            return
+        
+        keyboard = []
+        for i, recipe in enumerate(results):
+            keyboard.append([InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{i+offset}')])
+        
+        # Добавляем кнопку "Еще"
+        if len(results) == 5:
+            keyboard.append([InlineKeyboardButton("Еще", callback_data=f'more_{search_type}_{query_text}_{offset+5}')])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("Выберите рецепт:", reply_markup=reply_markup)
+    
+    elif query.data in ['search_by_title', 'search_by_ingredients']:
+        await query.edit_message_text(text="Введите название рецепта или ингредиент для поиска:")
+        context.user_data['search_type'] = query.data
 
 async def handle_message(update: Update, context: CallbackContext):
     query = update.message.text
     search_type = context.user_data.get('search_type')
-
-    if search_type == 'search_by_title':
-        results = search_recipes(query)
+    
+    if search_type in ['search_by_title', 'search_by_ingredients']:
+        results = search_recipes(query)[:5]
         if not results:
             await update.message.reply_text("Ничего не найдено.")
             return
@@ -67,18 +88,9 @@ async def handle_message(update: Update, context: CallbackContext):
         for i, recipe in enumerate(results):
             keyboard.append([InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{i}')])
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Выберите рецепт:", reply_markup=reply_markup)
-    
-    elif search_type == 'search_by_ingredients':
-        results = search_recipes(query)
-        if not results:
-            await update.message.reply_text("Ничего не найдено.")
-            return
-
-        keyboard = []
-        for i, recipe in enumerate(results):
-            keyboard.append([InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{i}')])
+        # Добавляем кнопку "Еще"
+        if len(results) == 5:
+            keyboard.append([InlineKeyboardButton("Еще", callback_data=f'more_{search_type}_{query}_5')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите рецепт:", reply_markup=reply_markup)
