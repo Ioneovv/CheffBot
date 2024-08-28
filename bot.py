@@ -13,14 +13,14 @@ def load_recipes():
 
 recipes = load_recipes()
 
-def search_recipes(query):
+def search_recipes(query, start=0, limit=5):
     results = []
     for recipe in recipes:
         title = recipe.get('title', '').lower()
         ingredients = [ing['ingredient'].lower() for ing in recipe.get('ingredients', [])]
         if query.lower() in title or any(query.lower() in ing for ing in ingredients):
             results.append(recipe)
-    return results
+    return results[start:start+limit]
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
@@ -59,7 +59,7 @@ async def button(update: Update, context: CallbackContext):
         query_text = data[2]
         offset = int(data[3])
         
-        results = search_recipes(query_text)[offset:offset+5]
+        results = search_recipes(query_text, start=offset, limit=5)
         if not results:
             await query.edit_message_text("Ничего не найдено.")
             return
@@ -84,7 +84,7 @@ async def handle_message(update: Update, context: CallbackContext):
     search_type = context.user_data.get('search_type')
     
     if search_type in ['search_by_title', 'search_by_ingredients']:
-        results = search_recipes(query)[:5]
+        results = search_recipes(query)
         if not results:
             await update.message.reply_text("Ничего не найдено.")
             return
