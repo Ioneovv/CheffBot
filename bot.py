@@ -12,8 +12,8 @@ async def main():
 
     await application.initialize()
     await application.start()
-    await application.updater.start_polling()
-    await application.stop()  # Останавливаем бота при завершении
+    # Не блокируем процесс и не вызываем stop() здесь
+    await application.updater.start_polling()  # Запуск бота и ожидание обновлений
 
 if __name__ == '__main__':
     try:
