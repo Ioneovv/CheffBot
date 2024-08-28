@@ -1,10 +1,9 @@
 import requests
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 
-# URL для загрузки рецептов (замените на свой)
-RECIPE_URL = 'https://drive.google.com/file/d/1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em/view?usp=drive_link'
+# Прямая ссылка для загрузки рецептов
+RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
@@ -21,7 +20,8 @@ CATEGORY_EMOJIS = {
     "Напитки": "🥤",
     "Вегетарианские": "🥦",
     "Диетические": "🥗",
-    "Завтраки": "🌅",  # Эмодзи для завтраков
+    "Завтраки": "🍳",
+    "Паста": "🍝"
 }
 
 # Ключевые слова для каждой категории
@@ -36,21 +36,23 @@ CATEGORIES = {
     'Напитки': ['напиток', 'смузи', 'коктейль', 'чай', 'кофе', 'сок', 'молочный коктейль'],
     'Вегетарианские': ['вегетарианский', 'веганский', 'овощи', 'тофу', 'сейтан'],
     'Диетические': ['диетический', 'низкокалорийный', 'обезжиренный', 'салат', 'овощной суп'],
-    'Завтраки': ['завтрак', 'сырники', 'каша', 'омлет', 'яичница', 'блины', 'оладьи', 'гренки', 'пудинг', 'йогурт', 'смесь злаков', 'мюсли']
+    'Завтраки': ['завтрак', 'сырники', 'каша', 'омлет', 'яичница', 'блины', 'оладьи', 'гренки', 'пудинг', 'йогурт', 'смесь злаков', 'мюсли'],
+    'Паста': ['спагетти', 'лазанья', 'спиральки', 'фарфале', 'карбонара', 'фитучини', 'ньоки', 'птим птим', 'орзо', 'ризотто', 'тельятели']
 }
 
 def load_recipes():
     try:
         response = requests.get(RECIPE_URL)
         response.raise_for_status()
-        print("Рецепты успешно загружены.")  # Отладочное сообщение
-        return response.json()  # Предполагается, что возвращается список рецептов
+        return response.json()
     except requests.RequestException as e:
-        print(f"Не удалось загрузить рецепты: {e}")
+        print(f"Ошибка загрузки рецептов: {e}")
+        return []
+    except ValueError as e:
+        print(f"Ошибка обработки JSON: {e}")
         return []
 
 def get_categories():
-    # Получаем уникальные категории из рецептов
     categories = set(recipe.get('category') for recipe in recipes)
     return sorted(categories)
 
@@ -66,7 +68,6 @@ def format_recipe(recipe):
     return recipe_text
 
 def categorize_recipe(recipe_title):
-    # Определяет категорию рецепта по ключевым словам в названии
     for category, keywords in CATEGORIES.items():
         if any(keyword.lower() in recipe_title.lower() for keyword in keywords):
             return category
@@ -80,10 +81,6 @@ async def start(update: Update, context: CallbackContext):
         return
 
     categories = get_categories()
-    if not categories:
-        await update.message.reply_text("Не удалось определить категории. Пожалуйста, попробуйте позже.")
-        return
-
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}')] for category in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
@@ -120,14 +117,13 @@ async def recipe_button(update: Update, context: CallbackContext):
             await query.message.delete()
             await query.message.reply_text(recipe_text, parse_mode='Markdown')
 
-            # Отправляем кнопки для выбора категории
             keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}')] for cat in get_categories()]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text("Выберите категорию рецептов:", reply_markup=reply_markup)
         else:
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
-        print(f"Ошибка в обработчике рецепта: {e}")
+        print(f"Ошибка в обработчике кнопки рецепта: {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
 
 async def main():
@@ -143,4 +139,5 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == '__main__':
+    import asyncio
     asyncio.run(main())
