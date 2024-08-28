@@ -43,9 +43,10 @@ def load_recipes():
     try:
         response = requests.get(RECIPE_URL)
         response.raise_for_status()
+        print("Рецепты успешно загружены.")  # Отладочное сообщение
         return response.json()  # Предполагается, что возвращается список рецептов
     except requests.RequestException as e:
-        print(f"Failed to load recipes: {e}")
+        print(f"Не удалось загрузить рецепты: {e}")
         return []
 
 def get_categories():
@@ -74,7 +75,15 @@ def categorize_recipe(recipe_title):
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
+    if not recipes:
+        await update.message.reply_text("Не удалось загрузить рецепты. Пожалуйста, попробуйте позже.")
+        return
+
     categories = get_categories()
+    if not categories:
+        await update.message.reply_text("Не удалось определить категории. Пожалуйста, попробуйте позже.")
+        return
+
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}')] for category in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
@@ -118,7 +127,7 @@ async def recipe_button(update: Update, context: CallbackContext):
         else:
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
-        print(f"Error in recipe_button handler: {e}")
+        print(f"Ошибка в обработчике рецепта: {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
 
 async def main():
