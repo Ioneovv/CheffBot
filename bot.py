@@ -3,7 +3,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
-# Загрузите JSON-файл с рецептами
+# Загрузка JSON-файла с рецептами
 RECIPE_URL = "https://drive.google.com/uc?export=download&id=1ZJRccW9YjpI0O8Q7eQ8PFCH5WC-6G-Yb"
 
 def load_recipes():
@@ -26,8 +26,8 @@ def format_recipe(recipe):
     recipe_text = f"*{recipe['title']}*\n\n"
     recipe_text += "Ингредиенты:\n"
     for ingredient in recipe.get('ingredients', []):
-        quantity = ingredient.get('quantity', 'не указано')
-        recipe_text += f"- {ingredient['ingredient']} ({quantity})\n"
+        amount = ingredient.get('amount', 'не указано')
+        recipe_text += f"- {ingredient['ingredient']} ({amount})\n"
     recipe_text += "\nПриготовление:\n"
     for i, step in enumerate(recipe.get('instructions', []), start=1):
         recipe_text += f"{i}. {step}\n"
@@ -46,18 +46,14 @@ async def button(update: Update, context: CallbackContext):
     await query.answer()
 
     if query.data.startswith('recipe_'):
-        # Обработка нажатия кнопки рецепта
         recipe_index = int(query.data.split('_')[1])
         recipe = context.user_data.get('current_results', [])[recipe_index]
         recipe_text = format_recipe(recipe)
 
-        # Удаляем предыдущие сообщения
         await query.message.delete()
 
-        # Отправляем рецепт
         await query.message.reply_text(recipe_text, parse_mode='Markdown')
 
-        # Запрашиваем новый поиск
         keyboard = [
             [InlineKeyboardButton("🔍 Поиск по названию", callback_data='search_by_title')],
             [InlineKeyboardButton("🍴 Поиск по ингредиентам", callback_data='search_by_ingredients')]
@@ -66,28 +62,27 @@ async def button(update: Update, context: CallbackContext):
         await query.message.reply_text('Введите название рецепта или ингредиент для поиска:', reply_markup=reply_markup)
 
     elif query.data.startswith('more_'):
-        # Обработка нажатия кнопки "Еще"
         search_type, query_text, offset = query.data.split('_')[1:]
         offset = int(offset)
-        
+
         results = search_recipes(query_text)
         more_results = results[offset:offset + 5]
-        
+
         if not more_results:
             await query.edit_message_text("Больше рецептов не найдено.")
             return
 
         context.user_data['current_results'] = more_results
-        keyboard = [
-            [InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(more_results)]
-        ]
+        keyboard = []
+        for i, recipe in enumerate(more_results):
+            keyboard.append([InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}')])
 
         if len(results) > offset + 5:
             keyboard.append([InlineKeyboardButton("👉 Еще", callback_data=f'more_{search_type}_{query_text}_{offset + 5}')])
-        
+
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("Выберите рецепт:", reply_markup=reply_markup)
-    
+
     elif query.data in ['search_by_title', 'search_by_ingredients']:
         await query.edit_message_text("Введите название рецепта или ингредиент для поиска:")
         context.user_data['search_type'] = query.data
@@ -95,7 +90,7 @@ async def button(update: Update, context: CallbackContext):
 async def handle_message(update: Update, context: CallbackContext):
     query = update.message.text
     search_type = context.user_data.get('search_type')
-    
+
     if search_type in ['search_by_title', 'search_by_ingredients']:
         results = search_recipes(query)
         context.user_data['current_results'] = results[:5]
@@ -104,16 +99,16 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text("Ничего не найдено.")
             return
 
-        keyboard = [
-            [InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}') for i, recipe in enumerate(results[:5])]
-        ]
-        
+        keyboard = []
+        for i, recipe in enumerate(results[:5]):
+            keyboard.append([InlineKeyboardButton(f"{recipe['title']}", callback_data=f'recipe_{i}')])
+
         if len(results) > 5:
             keyboard.append([InlineKeyboardButton("👉 Еще", callback_data=f'more_{search_type}_{query}_5')])
-        
+
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите рецепт:", reply_markup=reply_markup)
-    
+
     else:
         await update.message.reply_text("Пожалуйста, выберите способ поиска.")
 
