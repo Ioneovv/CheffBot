@@ -10,7 +10,19 @@ async def main():
 
     application.add_handler(CommandHandler("start", start))
 
-    await application.run_polling()
+    await application.initialize()  # Инициализируем приложение
+    await application.start()        # Запускаем приложение
+    await application.updater.start_polling()  # Запускаем polling
+    await application.updater.idle()  # Ждём завершения работы
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if loop.is_running():
+        loop.create_task(main())
+    else:
+        asyncio.run(main())
