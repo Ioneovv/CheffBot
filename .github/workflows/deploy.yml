@@ -23,7 +23,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run bot
-        run: python bot.py
+      - name: Run bot with restart on failure
+        run: |
+          while true; do
+            python bot.py || echo "Bot crashed with exit code $?. Restarting..." 
+            sleep 10
+          done
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
