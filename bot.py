@@ -1,7 +1,12 @@
+import logging
+import re
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 import asyncio
+
+# Логирование
+logging.basicConfig(level=logging.INFO)
 
 # Прямая ссылка для загрузки рецептов
 RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
@@ -50,10 +55,10 @@ def load_recipes():
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        print(f"Ошибка загрузки рецептов: {e}")
+        logging.error(f"Ошибка загрузки рецептов: {e}")
         return []
     except ValueError as e:
-        print(f"Ошибка обработки JSON: {e}")
+        logging.error(f"Ошибка обработки JSON: {e}")
         return []
 
 def get_categories():
@@ -72,8 +77,10 @@ def format_recipe(recipe):
     return recipe_text
 
 def categorize_recipe(recipe_title):
+    """Поиск категории рецепта по ключевым словам"""
     for category, keywords in CATEGORIES.items():
-        if any(keyword.lower() in recipe_title.lower() for keyword in keywords):
+        pattern = r'\b(?:' + '|'.join(re.escape(kw) for kw in keywords) + r')\b'
+        if re.search(pattern, recipe_title, re.IGNORECASE):
             return category
     return "Неизвестно"
 
@@ -139,11 +146,11 @@ async def recipe_button(update: Update, context: CallbackContext):
         else:
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
-        print(f"Ошибка в обработчике кнопки рецепта: {e}")
+        logging.error(f"Ошибка в обработчике кнопки рецепта: {e}")
         await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
 
 async def main():
-    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+    application = ApplicationBuilder().token("YOUR_TOKEN_HERE").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(category_button, pattern='^category_'))
@@ -154,5 +161,13 @@ async def main():
     await application.updater.start_polling()
     await asyncio.Event().wait()
 
+async def run_bot():
+    while True:
+        try:
+            await main()
+        except Exception as e:
+            logging.error(f"Ошибка: {e}")
+            await asyncio.sleep(10)  # Пауза перед перезапуском
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(run_bot())
