@@ -150,7 +150,7 @@ async def recipe_button(update: Update, context: CallbackContext):
         await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
 
 async def main():
-    application = ApplicationBuilder().token("YOUR_TOKEN_HERE").build()
+    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(category_button, pattern='^category_'))
