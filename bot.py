@@ -101,6 +101,11 @@ async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     data = query.data.split('_')
+    
+    if len(data) != 3:
+        await query.message.reply_text("Ошибка: Неверные данные кнопки.")
+        return
+
     category = data[1]
     page = int(data[2])
 
@@ -132,6 +137,11 @@ async def recipe_button(update: Update, context: CallbackContext):
 
     try:
         data = query.data.split('_')
+        
+        if len(data) != 3:
+            await query.message.reply_text("Ошибка: Неверные данные кнопки.")
+            return
+
         category = data[1]
         recipe_index = int(data[2])
         recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
@@ -149,7 +159,8 @@ async def recipe_button(update: Update, context: CallbackContext):
             keyboard = [
                 [InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0') for cat in get_categories()],
                 [InlineKeyboardButton("⭐️ Добавить в избранное", callback_data=f'add_favorite_{recipe["title"]}')],
-                [InlineKeyboardButton("⭐️ Избранное", callback_data='favorites')]
+                [InlineKeyboardButton("⭐️ Избранное", callback_data='favorites')],
+                [InlineKeyboardButton("📊 Статистика", callback_data='stats')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text("Выберите действие:", reply_markup=reply_markup)
@@ -157,7 +168,7 @@ async def recipe_button(update: Update, context: CallbackContext):
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
         logging.error(f"Ошибка в обработчике кнопки рецепта: {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
+        await query.message.reply_text("Произошла ошибка при обработке запроса.")
 
 async def favorites_button(update: Update, context: CallbackContext):
     query = update.callback_query
