@@ -2,7 +2,7 @@ import logging
 import re
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 import asyncio
 
 # Логирование
