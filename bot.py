@@ -1,9 +1,8 @@
-import logging 
+import logging
 import re
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-import asyncio
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -147,10 +146,13 @@ async def recipe_button(update: Update, context: CallbackContext):
             await query.message.delete()
             await query.message.reply_text(recipe_text, parse_mode='Markdown')
 
-            keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0')] for cat in get_categories()]
-            keyboard.append([InlineKeyboardButton("⭐️ Избранное", callback_data=f'favorites')])
+            keyboard = [
+                [InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0') for cat in get_categories()],
+                [InlineKeyboardButton("⭐️ Добавить в избранное", callback_data=f'add_favorite_{recipe["title"]}')],
+                [InlineKeyboardButton("⭐️ Избранное", callback_data='favorites')]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.message.reply_text("Выберите категорию рецептов:", reply_markup=reply_markup)
+            await query.message.reply_text("Выберите действие:", reply_markup=reply_markup)
         else:
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
@@ -168,17 +170,9 @@ async def add_to_favorites(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
-    data = query.data.split('_')
-    category = data[1]
-    recipe_index = int(data[2])
-    recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
-
-    if 0 <= recipe_index < len(recipes_in_category):
-        recipe = recipes_in_category[recipe_index]
-        favorite_recipes.add(recipe['title'])
-        await query.message.reply_text(f"Рецепт '{recipe['title']}' добавлен в избранное!")
-    else:
-        await query.message.reply_text("Ошибка: Рецепт не найден.")
+    recipe_title = query.data.split('_')[2]
+    favorite_recipes.add(recipe_title)
+    await query.message.reply_text(f"Рецепт '{recipe_title}' добавлен в избранное!")
 
 async def search_by_ingredient(update: Update, context: CallbackContext):
     user_input = update.message.text
@@ -203,12 +197,12 @@ if __name__ == '__main__':
     # Обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_by_ingredient))
-    
+
     # Обработчики кнопок
     application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_.*'))
     application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_.*'))
-    application.add_handler(CallbackQueryHandler(favorites_button, pattern=r'favorites'))
-    application.add_handler(CallbackQueryHandler(add_to_favorites, pattern=r'recipe_.*_add'))
+    application.add_handler(CallbackQueryHandler(favorites_button, pattern='favorites'))
+    application.add_handler(CallbackQueryHandler(add_to_favorites, pattern=r'add_favorite_.*'))
     application.add_handler(CallbackQueryHandler(stats_button, pattern='stats'))
 
     application.run_polling()
