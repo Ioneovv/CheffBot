@@ -1,18 +1,15 @@
 import logging
 import re
-import requests
+import aiohttp
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
-import asyncio
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
 # Прямая ссылка для загрузки рецептов
 RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
-
-# Глобальная переменная для хранения рецептов
-recipes = []
 
 # Эмодзи для категорий
 CATEGORY_EMOJIS = {
@@ -32,66 +29,39 @@ CATEGORY_EMOJIS = {
 
 # Ключевые слова для каждой категории
 CATEGORIES = {
-    'Салаты': ['салат', 'зелёный', 'овощной', 'капустный', 'винегрет', 'греческий', 'цезарь'],
-    'Супы': ['суп', 'бульон', 'щавель', 'крем-суп', 'рассольник', 'окрошка', 'пюре', 'пельмени'],
-    'Десерты': ['торт', 'пирог', 'печенье', 'пудинг', 'десерт', 'мороженое', 'запеканка', 'творожное'],
-    'Тесто': ['тесто', 'пирог', 'блины', 'блинчики', 'кекс', 'маффин', 'выпечка', 'пицца'],
-    'Хлеб': ['хлеб', 'булочка', 'круассан', 'багет', 'лебедушка', 'пита', 'фокачча'],
-    'Основные блюда': ['мясо', 'рыба', 'паста', 'гриль', 'запеканка', 'жаркое'],
-    'Закуски': ['закуска', 'канапе', 'кростини', 'фингер-фуд', 'рагу', 'кебаб'],
-    'Напитки': ['напиток', 'смузи', 'коктейль', 'чай', 'кофе', 'сок', 'молочный коктейль'],
-    'Вегетарианские': ['вегетарианский', 'веганский', 'овощи', 'тофу', 'сейтан'],
-    'Диетические': ['диетический', 'низкокалорийный', 'обезжиренный', 'салат', 'овощной суп'],
-    'Завтраки': ['завтрак', 'сырники', 'каша', 'омлет', 'яичница', 'блины', 'оладьи', 'гренки', 'пудинг', 'йогурт', 'смесь злаков', 'мюсли'],
-    'Паста': ['спагетти', 'лазанья', 'спиральки', 'фарфале', 'карбонара', 'фитучини', 'ньоки', 'птим птим', 'орзо', 'ризотто', 'тельятели']
+    # ... (как в вашем коде)
 }
 
 # Максимальное количество кнопок на странице
 BUTTONS_PER_PAGE = 5
 
-def load_recipes():
-    try:
-        response = requests.get(RECIPE_URL)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logging.error(f"Ошибка загрузки рецептов: {e}")
-        return []
-    except ValueError as e:
-        logging.error(f"Ошибка обработки JSON: {e}")
-        return []
+async def load_recipes():
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(RECIPE_URL) as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            logging.error(f"Ошибка загрузки рецептов: {e}")
+            return []
 
-def get_categories():
+def get_categories(recipes):
     categories = set(recipe.get('category') for recipe in recipes)
     return sorted(categories)
 
 def format_recipe(recipe):
-    recipe_text = f"🍽 **{recipe['title']}**\n\n"
-    recipe_text += "📝 **Ингредиенты:**\n"
-    for ingredient in recipe.get('ingredients', []):
-        amount = ingredient.get('amount', '')
-        recipe_text += f"🔸 {ingredient['ingredient']:20} {amount}\n"
-    recipe_text += "\n🧑‍🍳 **Приготовление:**\n"
-    for i, step in enumerate(recipe.get('instructions', []), start=1):
-        recipe_text += f"{i}. {step}\n"
-    return recipe_text
+    # ... (как в вашем коде)
 
 def categorize_recipe(recipe_title):
-    """Поиск категории рецепта по ключевым словам"""
-    for category, keywords in CATEGORIES.items():
-        pattern = r'\b(?:' + '|'.join(re.escape(kw) for kw in keywords) + r')\b'
-        if re.search(pattern, recipe_title, re.IGNORECASE):
-            return category
-    return "Неизвестно"
+    # ... (как в вашем коде)
 
 async def start(update: Update, context: CallbackContext):
-    global recipes
-    recipes = load_recipes()
+    recipes = await load_recipes()  # Загружаем рецепты асинхронно
     if not recipes:
         await update.message.reply_text("Не удалось загрузить рецепты. Пожалуйста, попробуйте позже.")
         return
 
-    categories = get_categories()
+    categories = get_categories(recipes)
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
@@ -102,7 +72,6 @@ async def category_button(update: Update, context: CallbackContext):
     data = query.data.split('_')
     category = data[1]
     page = int(data[2])
-
     recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
 
     if not recipes_in_category:
@@ -116,7 +85,6 @@ async def category_button(update: Update, context: CallbackContext):
     keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{category}_{i + start_index}')] for i, recipe in enumerate(recipes_page)]
     if end_index < len(recipes_in_category):
         keyboard.append([InlineKeyboardButton("➡️ Следующая страница", callback_data=f'category_{category}_{page + 1}')])
-
     if page > 0:
         keyboard.append([InlineKeyboardButton("⬅️ Предыдущая страница", callback_data=f'category_{category}_{page - 1}')])
 
@@ -127,27 +95,23 @@ async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
-    try:
-        data = query.data.split('_')
-        category = data[1]
-        recipe_index = int(data[2])
-        recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
+    data = query.data.split('_')
+    category = data[1]
+    recipe_index = int(data[2])
+    recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
 
-        if 0 <= recipe_index < len(recipes_in_category):
-            recipe = recipes_in_category[recipe_index]
-            recipe_text = format_recipe(recipe)
+    if 0 <= recipe_index < len(recipes_in_category):
+        recipe = recipes_in_category[recipe_index]
+        recipe_text = format_recipe(recipe)
 
-            await query.message.delete()
-            await query.message.reply_text(recipe_text, parse_mode='Markdown')
+        await query.message.delete()
+        await query.message.reply_text(recipe_text, parse_mode='Markdown')
 
-            keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0')] for cat in get_categories()]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.message.reply_text("Выберите категорию рецептов:", reply_markup=reply_markup)
-        else:
-            await query.message.reply_text("Ошибка: Рецепт не найден.")
-    except Exception as e:
-        logging.error(f"Ошибка в обработчике кнопки рецепта: {e}")
-        await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
+        keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0')] for cat in get_categories(recipes)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.reply_text("Выберите категорию рецептов:", reply_markup=reply_markup)
+    else:
+        await query.message.reply_text("Ошибка: Рецепт не найден.")
 
 async def main():
     application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
