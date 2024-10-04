@@ -1,4 +1,3 @@
-import asyncio
 import json
 import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -69,7 +68,7 @@ async def main() -> None:
     app = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", lambda update, context: help_command(update, context)))
+    app.add_handler(CommandHandler("help", lambda update, context: update.message.reply_text("Используйте /start для запуска бота.")))
     app.add_handler(CommandHandler("random", random_recipe))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_recipe))
     app.add_handler(MessageHandler(filters.COMMAND, lambda update, context: update.message.reply_text("Пожалуйста, используйте кнопки.")))
@@ -78,4 +77,5 @@ async def main() -> None:
 
 # Запуск бота
 if __name__ == "__main__":
-    asyncio.run(main())
+    import asyncio
+    asyncio.create_task(main())
