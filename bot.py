@@ -3,7 +3,6 @@ import re
 import requests
 import sqlite3
 import json
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -180,25 +179,22 @@ async def handle_message(update: Update, context: CallbackContext):
     found_recipes = [recipe for recipe in recipes if query.lower() in recipe['title'].lower() or any(query.lower() in ingredient['ingredient'].lower() for ingredient in recipe['ingredients'])]
 
     if not found_recipes:
-        await update.message.reply_text("Рецепт не найден. Попробуйте другой запрос.")
-    else:
-        keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Найденные рецепты:", reply_markup=reply_markup)
+        await update.message.reply_text("Рецепт не найден.")
+        return
 
-async def main():
-    global recipes
-    recipes = load_recipes()  # Загружаем рецепты один раз при запуске
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Найдены рецепты:", reply_markup=reply_markup)
 
+if __name__ == '__main__':
     application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()  # Замените на свой токен
 
+    # Добавляем обработчики
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
     application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
     application.add_handler(CallbackQueryHandler(search_recipes, pattern='search_recipes'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    await application.run_polling()
-
-if __name__ == '__main__':
-    asyncio.run(main())
+    # Запускаем бота
+    application.run_polling()
