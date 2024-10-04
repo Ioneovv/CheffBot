@@ -179,8 +179,6 @@ async def add_to_favorites(update: Update, context: CallbackContext):
     if recipe_title not in favorites:
         favorites.append(recipe_titleHere's the complete code for your Telegram bot, continuing from where we left off:
 
-```python
-        favorites.append(recipe_title)
         await query.message.reply_text(f"Рецепт '{recipe_title}' добавлен в избранное!")
     else:
         await query.message.reply_text(f"Рецепт '{recipe_title}' уже в избранном.")
