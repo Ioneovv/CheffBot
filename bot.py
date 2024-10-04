@@ -102,6 +102,17 @@ def count_users():
     c.execute('SELECT COUNT(*) FROM users')
     return c.fetchone()[0]
 
+def load_feedback():
+    try:
+        with open('data.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_feedback(feedback):
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(feedback, f, ensure_ascii=False, indent=4)
+
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
@@ -148,7 +159,7 @@ async def category_button(update: Update, context: CallbackContext):
         keyboard.append([InlineKeyboardButton("Вперёд", callback_data=f'category_{category}_{page + 1}')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f'Рецепты в категории *{category}*:', reply_markup=reply_markup)
+    await query.message.reply_text(f"Рецепты в категории {category}:", reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -157,34 +168,35 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe = recipes[recipe_index]
 
     recipe_text = format_recipe(recipe)
+    await query.message.reply_text(recipe_text)
 
-    keyboard = [[InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['url']}")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{categorize_recipe(recipe["title"])}_0')]]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(recipe_text, reply_markup=reply_markup)
-
-async def back_to_categories(update: Update, context: CallbackContext):
+async def search_recipes(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
+    await query.message.reply_text("Введите название рецепта или его ингредиенты:")
 
-    categories = get_categories()
-    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
-    keyboard.append([InlineKeyboardButton("📅 Составить меню на неделю", callback_data='weekly_menu')])
-    keyboard.append([InlineKeyboardButton("🔍 Поиск рецептов", callback_data='search_recipes')])
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
+async def handle_message(update: Update, context: CallbackContext):
+    query = update.message.text
+    found_recipes = [recipe for recipe in recipes if query.lower() in recipe['title'].lower() or any(query.lower() in ingredient['ingredient'].lower() for ingredient in recipe['ingredients'])]
+
+    if not found_recipes:
+        await update.message.reply_text("Рецепт не найден. Попробуйте другой запрос.")
+    else:
+        keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Найденные рецепты:", reply_markup=reply_markup)
 
 async def main():
     global recipes
-    recipes = load_recipes()
+    recipes = load_recipes()  # Загружаем рецепты один раз при запуске
 
-    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()  # Замените на свой токен
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
-    application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'back_to_categories'))
+    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
+    application.add_handler(CallbackQueryHandler(search_recipes, pattern='search_recipes'))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     await application.run_polling()
 
