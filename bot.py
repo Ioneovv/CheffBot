@@ -4,7 +4,7 @@ import requests
 import sqlite3
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 import random
 
 # Логирование
@@ -131,6 +131,7 @@ async def start(update: Update, context: CallbackContext):
     categories = get_categories()
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
     keyboard.append([InlineKeyboardButton("📅 Составить меню на неделю", callback_data='weekly_menu')])
+    keyboard.append([InlineKeyboardButton("🔍 Поиск рецептов", callback_data='search_recipes')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
@@ -142,111 +143,84 @@ async def category_button(update: Update, context: CallbackContext):
     page = int(data[2])
 
     recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
-
-    if not recipes_in_category:
-        await query.message.reply_text("Нет рецептов в этой категории.")
-        return
-
     start_index = page * BUTTONS_PER_PAGE
     end_index = start_index + BUTTONS_PER_PAGE
-    recipes_page = recipes_in_category[start_index:end_index]
+    recipes_to_display = recipes_in_category[start_index:end_index]
 
-    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_page]
+    if not recipes_to_display:
+        await query.message.reply_text("В этой категории нет рецептов.")
+        return
 
-    if start_index > 0:
-        keyboard.append([InlineKeyboardButton("Назад", callback_data=f'category_{category}_{page - 1}')])
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_to_display]
+
+    if page > 0:
+        keyboard.insert(0, [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{category}_{page - 1}')])
     if end_index < len(recipes_in_category):
-        keyboard.append([InlineKeyboardButton("Вперед", callback_data=f'category_{category}_{page + 1}')])
+        keyboard.append([InlineKeyboardButton("Вперёд", callback_data=f'category_{category}_{page + 1}')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text(f"Рецепты категории: {category}", reply_markup=reply_markup)
+    await query.message.reply_text(f'Рецепты в категории *{category}*:', reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-
     recipe_index = int(query.data.split('_')[1])
-    if recipe_index < 0 or recipe_index >= len(recipes):
-        await query.message.reply_text("Ошибка: Индекс рецепта вне диапазона.")
-        return
-
     recipe = recipes[recipe_index]
+
     recipe_text = format_recipe(recipe)
+    keyboard = [[InlineKeyboardButton("📤 Поделиться", url=f"https://t.me/share/url?url={recipe['url']}")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{categorize_recipe(recipe["title"])}_0')]]
 
-    # Кнопки для обратной связи
-    feedback_keyboard = [
-        [InlineKeyboardButton("✅ Хорошо", callback_data=f'feedback_{recipe_index}_good')],
-        [InlineKeyboardButton("❌ Плохо", callback_data=f'feedback_{recipe_index}_bad')]
-    ]
-    reply_markup = InlineKeyboardMarkup(feedback_keyboard)
-
-    await query.message.edit_text(recipe_text, reply_markup=reply_markup)
-
-async def handle_feedback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-
-    data = query.data.split('_')
-    recipe_index = int(data[1])
-    feedback = data[2]
-
-    user_feedback = load_feedback()
-    if str(recipe_index) not in user_feedback:
-        user_feedback[str(recipe_index)] = []
-    
-    user_feedback[str(recipe_index)].append(feedback)
-    save_feedback(user_feedback)
-
-    await query.message.reply_text("Спасибо за ваш отзыв!")
-
-async def weekly_menu(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
-
-    # Выбор количества блюд
-    keyboard = [
-        [InlineKeyboardButton("7 блюд", callback_data='menu_7')],
-        [InlineKeyboardButton("14 блюд", callback_data='menu_14')],
-        [InlineKeyboardButton("21 блюдо", callback_data='menu_21')],
-        [InlineKeyboardButton("⬅️ Назад", callback_data='back_to_categories')]
-    ]
-    
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.callback_query.message.edit_text("Сколько блюд вы хотите в меню на неделю?", reply_markup=reply_markup)
-
-async def generate_weekly_menu(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-
-    # Получаем количество блюд из данных кнопки
-    number_of_meals = int(query.data.split('_')[1])
-    
-    # Случайный выбор рецептов
-    selected_recipes = random.sample(recipes, min(number_of_meals, len(recipes)))
-
-    # Форматирование меню
-    menu_text = "🍽 **Ваше меню на неделю:**\n\n"
-    for i, recipe in enumerate(selected_recipes, start=1):
-        menu_text += f"{i}. **{recipe['title']}**\n"
-
-    # Отправляем меню пользователю
-    await query.message.edit_text(menu_text)
+    await query.message.reply_text(recipe_text, reply_markup=reply_markup)
 
 async def back_to_categories(update: Update, context: CallbackContext):
-    await start(update, context)
+    query = update.callback_query
+    await query.answer()
 
-def main():
+    categories = get_categories()
+    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
+    keyboard.append([InlineKeyboardButton("📅 Составить меню на неделю", callback_data='weekly_menu')])
+    keyboard.append([InlineKeyboardButton("🔍 Поиск рецептов", callback_data='search_recipes')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
+
+async def search_recipes(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    await query.message.reply_text("Введите ключевое слово для поиска рецептов:")
+    return "SEARCH"
+
+async def search(update: Update, context: CallbackContext):
+    query_text = update.message.text.lower()
+    matched_recipes = [recipe for recipe in recipes if query_text in recipe['title'].lower()]
+
+    if not matched_recipes:
+        await update.message.reply_text("Рецепты не найдены.")
+        return
+
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in matched_recipes]
+    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data='back_to_categories')])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Результаты поиска:", reply_markup=reply_markup)
+
+async def main():
+    global recipes
+    recipes = load_recipes()
+
     application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
-    application.add_handler(CallbackQueryHandler(handle_feedback, pattern=r'^feedback_'))
-    application.add_handler(CallbackQueryHandler(weekly_menu, pattern=r'^weekly_menu$'))
-    application.add_handler(CallbackQueryHandler(generate_weekly_menu, pattern=r'^menu_'))
-    application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'^back_to_categories$'))
+    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
+    application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'back_to_categories'))
+    application.add_handler(CallbackQueryHandler(search_recipes, pattern=r'search_recipes'))
+    application.add_handler(MessageHandler(Filters.text & ~Filters.command, search))
 
-    application.run_polling()
+    await application.run_polling()
 
 if __name__ == '__main__':
-    recipes = load_recipes()  # Загрузите рецепты при запуске
-    main()
+    import asyncio
+    asyncio.run(main())
