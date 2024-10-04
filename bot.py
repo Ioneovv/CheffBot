@@ -2,6 +2,7 @@ import logging
 import re
 import requests
 import sqlite3
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 import asyncio
@@ -14,7 +15,6 @@ RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
-favorites = []
 
 # Эмодзи для категорий
 CATEGORY_EMOJIS = {
@@ -51,6 +51,15 @@ CATEGORIES = {
 # Максимальное количество кнопок на странице
 BUTTONS_PER_PAGE = 5
 
+# Подключение к базе данных
+conn = sqlite3.connect('users.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    username TEXT
+)''')
+conn.commit()
+
 def load_recipes():
     try:
         response = requests.get(RECIPE_URL)
@@ -86,6 +95,25 @@ def categorize_recipe(recipe_title):
             return category
     return "Неизвестно"
 
+def add_user(user_id, username):
+    c.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)', (user_id, username))
+    conn.commit()
+
+def count_users():
+    c.execute('SELECT COUNT(*) FROM users')
+    return c.fetchone()[0()
+
+def load_feedback():
+    try:
+        with open('data.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_feedback(feedback):
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(feedback, f, ensure_ascii=False, indent=4)
+
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
@@ -93,9 +121,17 @@ async def start(update: Update, context: CallbackContext):
         await update.message.reply_text("Не удалось загрузить рецепты. Пожалуйста, попробуйте позже.")
         return
 
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    add_user(user_id, username)  # Добавляем пользователя в базу
+    user_count = count_users()    # Получаем количество пользователей
+
+    await update.message.reply_text(f'Привет! Вы являетесь {user_count}-м пользователем этого бота!')
+
     categories = get_categories()
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
-    keyboard.append([InlineKeyboardButton("⭐️ Избранное", callback_data='favorites')])  # Кнопка избранного
+    keyboard.append([InlineKeyboardButton("📅 Составить меню на неделю", callback_data='weekly_menu')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
@@ -120,77 +156,99 @@ async def category_button(update: Update, context: CallbackContext):
     
     if end_index < len(recipes_in_category):
         keyboard.append([InlineKeyboardButton("➡️ Следующая страница", callback_data=f'category_{category}_{page + 1}')])
-
     if page > 0:
         keyboard.append([InlineKeyboardButton("⬅️ Предыдущая страница", callback_data=f'category_{category}_{page - 1}')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text("Выберите рецепт:", reply_markup=reply_markup)
+    await query.message.edit_text(f'Рецепты в категории **{category}**:', reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
     data = query.data.split('_')
-    
     if len(data) != 3 or data[0] != 'recipe':
-        await query.message.reply_text("Ошибка: Неверные данные кнопки.")
+        await query.message.reply_text("Ошибка: Неверный индекс рецепта.")
         return
 
     category = data[1]
     recipe_index = int(data[2])
 
-    if 0 <= recipe_index < len(recipes):
-        recipe = recipes[recipe_index]
-        recipe_text = format_recipe(recipe)
-        keyboard = [
-            [InlineKeyboardButton("⭐️ Добавить в Избранное", callback_data=f'add_favorite_{recipe_index}')],
-            [InlineKeyboardButton("⬅️ Вернуться к рецептам", callback_data=f'category_{category}_0')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.reply_text(recipe_text, reply_markup=reply_markup)
-    else:
-        await query.message.reply_text("Ошибка: Рецепт не найден.")
+    if recipe_index < 0 or recipe_index >= len(recipes):
+        await query.message.reply_text("Ошибка: Индекс рецепта вне диапазона.")
+        return
 
-async def add_favorite(update: Update, context: CallbackContext):
+    recipe = recipes[recipe_index]
+    recipe_text = format_recipe(recipe)
+
+    # Кнопки для обратной связи
+    feedback_keyboard = [
+        [InlineKeyboardButton("✅ Хорошо", callback_data=f'feedback_{recipe_index}_good')],
+        [InlineKeyboardButton("❌ Плохо", callback_data=f'feedback_{recipe_index}_bad')]
+    ]
+    reply_markup = InlineKeyboardMarkup(feedback_keyboard)
+
+    await query.message.edit_text(recipe_text, reply_markup=reply_markup)
+
+async def handle_feedback(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    
+
     data = query.data.split('_')
+    if len(data) != 3 or data[0] != 'feedback':
+        await query.message.reply_text("Ошибка: Неверный индекс обратной связи.")
+        return
+
+    recipe_index = int(data[1])
+    feedback = data[2]
+
+    # Сохраняем обратную связь
+    feedback_data = load_feedback()
+    feedback_data.setdefault(recipe_index, []).append(feedback)
+    save_feedback(feedback_data)
+
+    await query.message.reply_text("Спасибо за ваш отзыв!")
+
+async def weekly_menu(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    keyboard = []
+    for i in range(7):  # 7 дней недели
+        keyboard.append([InlineKeyboardButton(f"День {i + 1}", callback_data=f'menu_day_{i}')])
     
-    if len(data) != 3 or data[0] != 'add_favorite':
-        await query.message.reply_text("Ошибка: Неверные данные для добавления в избранное.")
-        return
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text("Выберите день для меню:", reply_markup=reply_markup)
 
-    recipe_index = int(data[2])
+async def menu_day(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
 
-    if 0 <= recipe_index < len(recipes):
-        recipe = recipes[recipe_index]
-        favorites.append(recipe)
-        await query.message.reply_text(f"✅ Рецепт **{recipe['title']}** добавлен в Избранное!")
-    else:
-        await query.message.reply_text("Ошибка: Рецепт не найден.")
+    day = int(query.data.split('_')[-1])
+    menu = []
 
-async def show_favorites(update: Update, context: CallbackContext):
-    if not favorites:
-        await update.message.reply_text("Избранное пусто.")
-        return
+    # Генерация случайного меню для дня
+    for _ in range(3):  # 3 приема пищи
+        recipe = random.choice(recipes)  # выбираем случайный рецепт
+        menu.append(recipe['title'])
 
-    favorites_text = "⭐️ Избранные рецепты:\n\n"
-    for i, recipe in enumerate(favorites):
-        favorites_text += f"{i + 1}. **{recipe['title']}**\n"
-
-    await update.message.reply_text(favorites_text)
+    menu_text = f"Меню на день {day + 1}:\n" + "\n".join(menu)
+    await query.message.edit_text(menu_text)
 
 def main():
-    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
-
+    # Загружаем рецепты
+    global recipes
+    recipes = load_recipes()
+    
+    # Запуск бота
+    application = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\w+_\d+'))
-    application.add_handler(CallbackQueryHandler(add_favorite, pattern=r'add_favorite_\d+'))
-    application.add_handler(CallbackQueryHandler(show_favorites, pattern=r'favorites'))
-
+    application.add_handler(CallbackQueryHandler(category_button, pattern='^category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern='^recipe_'))
+    application.add_handler(CallbackQueryHandler(handle_feedback, pattern='^feedback_'))
+    application.add_handler(CallbackQueryHandler(weekly_menu, pattern='^weekly_menu$'))
+    application.add_handler(CallbackQueryHandler(menu_day, pattern='^menu_day_'))
+    
     application.run_polling()
 
 if __name__ == '__main__':
