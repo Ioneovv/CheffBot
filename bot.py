@@ -172,18 +172,15 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe_text = format_recipe(recipe)
 
     keyboard = [
-        [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['title']}")],
-        [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')],
-        [InlineKeyboardButton("🏠 Домой", callback_data='back_to_home')]
+        [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['link']}&text={recipe['title']}")],
+        [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')]
     ]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(recipe_text, reply_markup=reply_markup)
 
 async def search_recipes(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-
     await query.message.reply_text("Введите название рецепта для поиска:")
     context.user_data['search'] = True
 
