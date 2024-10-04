@@ -1,15 +1,13 @@
 import logging
 import re
-import requests
 import json
+import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
+import requests
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
-
-# Прямая ссылка для загрузки рецептов
-RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
@@ -19,53 +17,21 @@ CATEGORY_EMOJIS = {
     "Салаты": "🥗",
     "Супы": "🍲",
     "Десерты": "🍰",
-    "Тесто": "🥞",
-    "Хлеб": "🍞",
     "Основные блюда": "🍽",
     "Закуски": "🥪",
     "Напитки": "🥤",
-    "Вегетарианские": "🥦",
-    "Диетические": "🥗",
-    "Завтраки": "🍳",
-    "Паста": "🍝"
 }
 
-# Ключевые слова для каждой категории
-CATEGORIES = {
-    'Салаты': ['салат', 'зелёный', 'овощной', 'капустный', 'винегрет', 'греческий', 'цезарь'],
-    'Супы': ['суп', 'бульон', 'щавель', 'крем-суп', 'рассольник', 'окрошка', 'пюре', 'пельмени'],
-    'Десерты': ['торт', 'пирог', 'печенье', 'пудинг', 'десерт', 'мороженое', 'запеканка', 'творожное'],
-    'Тесто': ['тесто', 'пирог', 'блины', 'блинчики', 'кекс', 'маффин', 'выпечка', 'пицца'],
-    'Хлеб': ['хлеб', 'булочка', 'круассан', 'багет', 'лебедушка', 'пита', 'фокачча'],
-    'Основные блюда': ['мясо', 'рыба', 'паста', 'гриль', 'запеканка', 'жаркое'],
-    'Закуски': ['закуска', 'канапе', 'кростини', 'фингер-фуд', 'рагу', 'кебаб'],
-    'Напитки': ['напиток', 'смузи', 'коктейль', 'чай', 'кофе', 'сок', 'молочный коктейль'],
-    'Вегетарианские': ['вегетарианский', 'веганский', 'овощи', 'тофу', 'сейтан'],
-    'Диетические': ['диетический', 'низкокалорийный', 'обезжиренный', 'салат', 'овощной суп'],
-    'Завтраки': ['завтрак', 'сырники', 'каша', 'омлет', 'яичница', 'блины', 'оладьи', 'гренки', 'пудинг', 'йогурт', 'смесь злаков', 'мюсли'],
-    'Паста': ['спагетти', 'лазанья', 'спиральки', 'фарфале', 'карбонара', 'фитучини', 'ньоки', 'птим птим', 'орзо', 'ризотто', 'тельятели']
-}
-
-# Максимальное количество кнопок на странице
-BUTTONS_PER_PAGE = 5
-
-# Загрузка рецептов с Google Диска
+# Загрузка рецептов
 def load_recipes():
     try:
-        response = requests.get(RECIPE_URL)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logging.error(f"Ошибка загрузки рецептов: {e}")
-        return []
-    except ValueError as e:
-        logging.error(f"Ошибка обработки JSON: {e}")
+        with open('recipes.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.error("Ошибка загрузки или обработки recipes.json")
         return []
 
-def get_categories():
-    categories = set(recipe.get('category') for recipe in recipes)
-    return sorted(categories)
-
+# Форматирование рецепта
 def format_recipe(recipe):
     recipe_text = f"🍽 **{recipe['title']}**\n\n"
     recipe_text += "📝 **Ингредиенты:**\n"
@@ -77,13 +43,21 @@ def format_recipe(recipe):
         recipe_text += f"{i}. {step}\n"
     return recipe_text
 
-def categorize_recipe(recipe_title):
-    for category, keywords in CATEGORIES.items():
-        pattern = r'\b(?:' + '|'.join(re.escape(kw) for kw in keywords) + r')\b'
-        if re.search(pattern, recipe_title, re.IGNORECASE):
-            return category
-    return "Неизвестно"
+# Получение категорий
+def get_categories():
+    return sorted(set(recipe.get('category') for recipe in recipes))
 
+# Поиск рецептов
+def search_recipes(query):
+    return [recipe for recipe in recipes if query.lower() in recipe['title'].lower()]
+
+# Функция составления меню
+def create_weekly_menu():
+    selected_recipes = random.sample(recipes, 7)
+    menu = "\n".join([f"{i + 1}. {recipe['title']}" for i, recipe in enumerate(selected_recipes)])
+    return f"📅 **Ваше меню на неделю:**\n{menu}"
+
+# Команды и обработчики
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
@@ -91,42 +65,30 @@ async def start(update: Update, context: CallbackContext):
         await update.message.reply_text("Не удалось загрузить рецепты. Пожалуйста, попробуйте позже.")
         return
 
-    await update.message.reply_text('Привет! Выберите категорию рецептов:')
-
     categories = get_categories()
-    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
+    keyboard = [
+        [InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}')]
+        for category in categories
+    ]
     keyboard.append([InlineKeyboardButton("📅 Составить меню на неделю", callback_data='weekly_menu')])
-    keyboard.append([InlineKeyboardButton("🏠 Домой", callback_data='home')])  # Кнопка "Домой"
+    keyboard.append([InlineKeyboardButton("🔍 Поиск рецептов", callback_data='search')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
 async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    data = query.data.split('_')
-    category = data[1]
-    page = int(data[2])
+    category = query.data.split('_')[1]
 
-    recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
-
+    recipes_in_category = [recipe for recipe in recipes if recipe['category'] == category]
     if not recipes_in_category:
         await query.message.reply_text("Нет рецептов в этой категории.")
         return
 
-    start_index = page * BUTTONS_PER_PAGE
-    end_index = start_index + BUTTONS_PER_PAGE
-    recipes_page = recipes_in_category[start_index:end_index]
-
-    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_page]
-
-    if start_index > 0:
-        keyboard.append([InlineKeyboardButton("Назад", callback_data=f'category_{category}_{page - 1}')])
-    if end_index < len(recipes_in_category):
-        keyboard.append([InlineKeyboardButton("Вперед", callback_data=f'category_{category}_{page + 1}')])
-    
-    keyboard.append([InlineKeyboardButton("🏠 Домой", callback_data='home')])  # Кнопка "Домой"
-
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_in_category]
+    keyboard.append([InlineKeyboardButton("🏠 Домой", callback_data='home')])
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await query.message.edit_text(f"Рецепты категории: {category}", reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
@@ -134,31 +96,49 @@ async def recipe_button(update: Update, context: CallbackContext):
     await query.answer()
 
     recipe_index = int(query.data.split('_')[1])
-    if recipe_index < 0 or recipe_index >= len(recipes):
-        await query.message.reply_text("Ошибка: Индекс рецепта вне диапазона.")
-        return
-
     recipe = recipes[recipe_index]
     recipe_text = format_recipe(recipe)
 
     keyboard = [
-        [InlineKeyboardButton("Назад", callback_data=f'category_{categorize_recipe(recipe["title"])}_0')],
+        [InlineKeyboardButton("Назад", callback_data=f'category_{recipe["category"]}')],
         [InlineKeyboardButton("🏠 Домой", callback_data='home')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.message.edit_text(recipe_text, reply_markup=reply_markup)
 
+async def weekly_menu(update: Update, context: CallbackContext):
+    menu = create_weekly_menu()
+    await update.callback_query.message.reply_text(menu)
+
+async def search_handler(update: Update, context: CallbackContext):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text("Введите название или ингредиент для поиска:")
+    return 'SEARCH'
+
+async def handle_search(update: Update, context: CallbackContext):
+    query = update.message.text
+    results = search_recipes(query)
+    if not results:
+        await update.message.reply_text("Ничего не найдено.")
+        return
+
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in results]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Результаты поиска:", reply_markup=reply_markup)
+
 async def main():
     global recipes
     recipes = load_recipes()
-    logging.info(f"Загружено {len(recipes)} рецептов.")
     
     app = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
     app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
+    app.add_handler(CallbackQueryHandler(weekly_menu, pattern=r'weekly_menu'))
+    app.add_handler(CallbackQueryHandler(search_handler, pattern=r'search'))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_search))
 
     await app.run_polling()
 
