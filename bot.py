@@ -185,6 +185,10 @@ async def recipe_button(update: Update, context: CallbackContext):
     await query.message.edit_text(recipe_text, reply_markup=reply_markup)
 
 async def main():
+    global recipes
+    recipes = load_recipes()
+    logging.info(f"Загружено {len(recipes)} рецептов.")
+    
     app = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     app.add_handler(CommandHandler("start", start))
@@ -193,9 +197,6 @@ async def main():
 
     await app.run_polling()
 
-import asyncio
-
 if __name__ == '__main__':
-    recipes = load_recipes()
-    logging.info(f"Загружено {len(recipes)} рецептов.")
+    import asyncio
     asyncio.run(main())
