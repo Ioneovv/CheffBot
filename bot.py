@@ -168,7 +168,8 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe = recipes[recipe_index]
 
     recipe_text = format_recipe(recipe)
-       keyboard = [
+
+    keyboard = [
         [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['title']}")],
         [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')]
     ]
