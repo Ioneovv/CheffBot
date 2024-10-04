@@ -3,7 +3,7 @@ import re
 import requests
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 import asyncio
 
 # Логирование
@@ -15,7 +15,6 @@ RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
 # Глобальная переменная для хранения рецептов
 recipes = []
 favorites = []
-usage_stats = {}
 
 # Эмодзи для категорий
 CATEGORY_EMOJIS = {
@@ -172,7 +171,8 @@ async def recipe_button(update: Update, context: CallbackContext):
             recipe_text = format_recipe(recipe)
             keyboard = [
                 [InlineKeyboardButton("⭐️ Добавить в Избранное", callback_data=f'add_favorite_{recipe_index}')],
-                [InlineKeyboardButton("⬅️ Вернуться к рецептам", callback_data=f'category_{category}_0')]
+                [InlineKeyboardButton("⬅️ Вернуться к рецептам", callback_data=f'category_{category}_0')],
+                [InlineKeyboardButton("🏠 На главную", callback_data='menu')]  # Добавлена кнопка на главную
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text(recipe_text, reply_markup=reply_markup)
@@ -210,6 +210,13 @@ async def show_favorites(update: Update, context: CallbackContext):
 
     await update.message.reply_text(favorites_text)
 
+async def menu(update: Update, context: CallbackContext):
+    categories = get_categories()
+    keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
+    keyboard.append([InlineKeyboardButton("⭐️ Избранное", callback_data='favorites')])  # Кнопка избранного
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
+
 def main():
     app = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
 
@@ -218,10 +225,10 @@ def main():
     app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
     app.add_handler(CallbackQueryHandler(add_favorite, pattern=r'add_favorite_'))
     app.add_handler(CallbackQueryHandler(show_favorites, pattern=r'favorites'))
+    app.add_handler(CallbackQueryHandler(menu, pattern=r'menu'))  # Добавляем обработчик для меню
 
     app.run_polling()
 
 if __name__ == '__main__':
     recipes = load_recipes()
     main()
-
