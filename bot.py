@@ -1,10 +1,8 @@
 import logging
-import re
 import json
 import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
-import requests
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -27,8 +25,8 @@ def load_recipes():
     try:
         with open('recipes.json', 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        logging.error("Ошибка загрузки или обработки recipes.json")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logging.error(f"Ошибка загрузки или обработки recipes.json: {e}")
         return []
 
 # Форматирование рецепта
@@ -53,7 +51,7 @@ def search_recipes(query):
 
 # Функция составления меню
 def create_weekly_menu():
-    selected_recipes = random.sample(recipes, 7)
+    selected_recipes = random.sample(recipes, min(7, len(recipes)))  # Убедимся, что не превышаем количество рецептов
     menu = "\n".join([f"{i + 1}. {recipe['title']}" for i, recipe in enumerate(selected_recipes)])
     return f"📅 **Ваше меню на неделю:**\n{menu}"
 
