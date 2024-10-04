@@ -206,6 +206,9 @@ async def search(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Результаты поиска:", reply_markup=reply_markup)
 
+import asyncio
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+
 async def main():
     global recipes
     recipes = load_recipes()
@@ -220,8 +223,12 @@ async def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
     # Запуск бота
-    await application.run_polling()
+    await application.start()
+    await application.updater.start_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    # Если цикл событий уже запущен
+    try:
+        asyncio.get_running_loop().run_until_complete(main())
+    except RuntimeError:
+        asyncio.run(main())
