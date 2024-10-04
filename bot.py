@@ -3,6 +3,7 @@ import re
 import requests
 import sqlite3
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -167,7 +168,18 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe = recipes[recipe_index]
 
     recipe_text = format_recipe(recipe)
-    await query.message.reply_text(recipe_text)
+       keyboard = [
+        [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['title']}")],
+        [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text(recipe_text, reply_markup=reply_markup)
+
+async def handle_back_to_categories(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    await start(query, context)  # Возвращаемся к выбору категорий
 
 async def search_recipes(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -179,22 +191,26 @@ async def handle_message(update: Update, context: CallbackContext):
     found_recipes = [recipe for recipe in recipes if query.lower() in recipe['title'].lower() or any(query.lower() in ingredient['ingredient'].lower() for ingredient in recipe['ingredients'])]
 
     if not found_recipes:
-        await update.message.reply_text("Рецепт не найден.")
-        return
+        await update.message.reply_text("Рецепт не найден. Попробуйте другой запрос.")
+    else:
+        keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Найденные рецепты:", reply_markup=reply_markup)
 
-    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Найдены рецепты:", reply_markup=reply_markup)
+async def main():
+    global recipes
+    recipes = load_recipes()  # Загружаем рецепты один раз при запуске
 
-if __name__ == '__main__':
     application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()  # Замените на свой токен
 
-    # Добавляем обработчики
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
     application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
     application.add_handler(CallbackQueryHandler(search_recipes, pattern='search_recipes'))
+    application.add_handler(CallbackQueryHandler(handle_back_to_categories, pattern='back_to_categories'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Запускаем бота
-    application.run_polling()
+    await application.run_polling()
+
+if __name__ == '__main__':
+    asyncio.run(main())
