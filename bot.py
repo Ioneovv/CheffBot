@@ -123,8 +123,8 @@ async def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     username = update.effective_user.username
 
-    add_user(user_id, username)  # Добавляем пользователя в базу
-    user_count = count_users()    # Получаем количество пользователей
+    add_user(user_id, username)
+    user_count = count_users()
 
     await update.message.reply_text(f'Привет! Вы являетесь {user_count}-м пользователем этого бота!')
 
@@ -180,20 +180,51 @@ async def recipe_button(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(recipe_text, reply_markup=reply_markup)
 
+async def search_recipes(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    await query.message.reply_text("Введите название рецепта для поиска:")
+    context.user_data['search'] = True
+
+async def handle_search(update: Update, context: CallbackContext):
+    if context.user_data.get('search'):
+        search_query = update.message.text.lower()
+        found_recipes = [recipe for recipe in recipes if search_query in recipe['title'].lower()]
+
+        if found_recipes:
+            keyboard = [
+                [InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes
+            ]
+            keyboard.append([InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text("Результаты поиска:", reply_markup=reply_markup)
+        else:
+            await update.message.reply_text("Рецепты не найдены.")
+        
+        context.user_data['search'] = False  # Сброс флага
+
+async def back_to_home(update: Update, context: CallbackContext):
+    await start(update, context)
+
+async def back_to_categories(update: Update, context: CallbackContext):
+    await category_button(update, context)
+
 async def main():
     global recipes
-    recipes = load_recipes()  # Загружаем рецепты один раз при запуске
+    recipes = load_recipes()
 
-    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()  # Замените на свой токен
+    application = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
+    application.add_handler(CallbackQueryHandler(category_button, pattern='category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern='recipe_'))
     application.add_handler(CallbackQueryHandler(search_recipes, pattern='search_recipes'))
-    application.add_handler(CallbackQueryHandler(handle_back_to_categories, pattern='back_to_categories'))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_search))
+    application.add_handler(CallbackQueryHandler(back_to_home, pattern='back_to_home'))
+    application.add_handler(CallbackQueryHandler(back_to_categories, pattern='back_to_categories'))
 
     await application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
