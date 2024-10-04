@@ -65,7 +65,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основная функция для запуска бота
 async def main() -> None:
-    app = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+    app = Application.builder().token("YOUR_BOT_TOKEN").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", lambda update, context: update.message.reply_text("Используйте /start для запуска бота.")))
@@ -78,4 +78,4 @@ async def main() -> None:
 # Запуск бота
 if __name__ == "__main__":
     import asyncio
-    asyncio.create_task(main())
+    asyncio.run(main())
