@@ -3,7 +3,6 @@ import re
 import requests
 import sqlite3
 import json
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -175,7 +174,7 @@ async def recipe_button(update: Update, context: CallbackContext):
         [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['title']}")],
         [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')],
         [InlineKeyboardButton("🏠 Домой", callback_data='back_to_home')]
-    ]
+   
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(recipe_text, reply_markup=reply_markup)
