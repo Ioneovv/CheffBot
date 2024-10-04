@@ -6,6 +6,7 @@ import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 import random
+import asyncio
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -168,7 +169,8 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe = recipes[recipe_index]
 
     recipe_text = format_recipe(recipe)
-    keyboard = [[InlineKeyboardButton("📤 Поделиться", url=f"https://t.me/share/url?url={recipe['url']}")],
+
+    keyboard = [[InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['url']}")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{categorize_recipe(recipe["title"])}_0')]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -219,8 +221,10 @@ async def main():
     application.add_handler(CallbackQueryHandler(search_recipes, pattern=r'search_recipes'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
+    # Запуск бота
     await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())  # Запускаем задачу main
+    loop.run_forever()  # Запускаем бесконечный цикл
