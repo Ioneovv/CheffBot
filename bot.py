@@ -193,7 +193,9 @@ async def main():
 
     await app.run_polling()
 
+import asyncio
+
 if __name__ == '__main__':
     recipes = load_recipes()
     logging.info(f"Загружено {len(recipes)} рецептов.")
-    main()
+    asyncio.run(main())
