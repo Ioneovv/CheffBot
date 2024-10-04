@@ -5,8 +5,6 @@ import sqlite3
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-import random
-import asyncio
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -225,6 +223,5 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())  # Запускаем задачу main
-    loop.run_forever()  # Запускаем бесконечный цикл
+    import asyncio
+    asyncio.run(main())
