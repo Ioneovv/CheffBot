@@ -206,7 +206,6 @@ async def back_to_home(update: Update, context: CallbackContext):
 
 async def back_to_categories(update: Update, context: CallbackContext):
     await category_button(update, context)
-
 # [ваш предыдущий код]
 
 async def main():
@@ -226,5 +225,5 @@ async def main():
     await application.run_polling()
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    import asyncio
+    asyncio.run(main())
