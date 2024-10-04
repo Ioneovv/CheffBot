@@ -3,6 +3,7 @@ import re
 import requests
 import sqlite3
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -101,17 +102,6 @@ def count_users():
     c.execute('SELECT COUNT(*) FROM users')
     return c.fetchone()[0]
 
-def load_feedback():
-    try:
-        with open('data.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_feedback(feedback):
-    with open('data.json', 'w', encoding='utf-8') as f:
-        json.dump(feedback, f, ensure_ascii=False, indent=4)
-
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
@@ -185,30 +175,6 @@ async def back_to_categories(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
-async def search_recipes(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-
-    await query.message.reply_text("Введите ключевое слово для поиска рецептов:")
-    return "SEARCH"
-
-async def search(update: Update, context: CallbackContext):
-    query_text = update.message.text.lower()
-    matched_recipes = [recipe for recipe in recipes if query_text in recipe['title'].lower()]
-
-    if not matched_recipes:
-        await update.message.reply_text("Рецепты не найдены.")
-        return
-
-    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in matched_recipes]
-    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data='back_to_categories')])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Результаты поиска:", reply_markup=reply_markup)
-
-import asyncio
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-
 async def main():
     global recipes
     recipes = load_recipes()
@@ -219,16 +185,8 @@ async def main():
     application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
     application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
     application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'back_to_categories'))
-    application.add_handler(CallbackQueryHandler(search_recipes, pattern=r'search_recipes'))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
-    # Запуск бота
-    await application.start()
-    await application.updater.start_polling()
+    await application.run_polling()
 
 if __name__ == '__main__':
-    # Если цикл событий уже запущен
-    try:
-        asyncio.get_running_loop().run_until_complete(main())
-    except RuntimeError:
-        asyncio.run(main())
+    asyncio.run(main())
