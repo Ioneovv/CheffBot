@@ -4,7 +4,7 @@ import requests
 import sqlite3
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 import random
 
 # Логирование
@@ -217,7 +217,7 @@ async def main():
     application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
     application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'back_to_categories'))
     application.add_handler(CallbackQueryHandler(search_recipes, pattern=r'search_recipes'))
-    application.add_handler(MessageHandler(Filters.text & ~Filters.command, search))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
     await application.run_polling()
 
