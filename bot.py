@@ -1,7 +1,7 @@
 import asyncio
 import json
 import random
-from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Функция для загрузки рецептов
@@ -76,5 +76,6 @@ async def main() -> None:
 
     await app.run_polling()
 
+# Запуск бота
 if __name__ == "__main__":
     asyncio.run(main())
