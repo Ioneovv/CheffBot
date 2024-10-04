@@ -168,25 +168,16 @@ async def recipe_button(update: Update, context: CallbackContext):
 
         category = data[1]
         recipe_index = int(data[2])
-        recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
+        recipe = recipes[recipe_index]
 
-        if 0 <= recipe_index < len(recipes_in_category):
-            recipe = recipes_in_category[recipe_index]
+        if recipe:
             recipe_text = format_recipe(recipe)
-
-            # Увеличиваем счетчик использования
-            usage_stats[recipe['title']] = usage_stats.get(recipe['title'], 0) + 1
-
-            await query.message.delete()
-            await query.message.reply_text(recipe_text, parse_mode='Markdown')
-
-            # Формируем клавиатуру с ограничением на количество кнопок
             keyboard = [
                 [InlineKeyboardButton("⭐️ Добавить в Избранное", callback_data=f'add_favorite_{recipe_index}')],
                 [InlineKeyboardButton("⬅️ Вернуться к рецептам", callback_data=f'category_{category}_0')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.message.reply_text("Выберите действие:", reply_markup=reply_markup)
+            await query.message.reply_text(recipe_text, reply_markup=reply_markup)
         else:
             await query.message.reply_text("Ошибка: Рецепт не найден.")
     except Exception as e:
@@ -222,7 +213,7 @@ async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text(help_text)
 
 async def main():
-    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+    application = ApplicationBuilder().token("YOUR_TOKEN").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -234,4 +225,5 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
