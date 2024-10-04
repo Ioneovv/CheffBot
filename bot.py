@@ -5,7 +5,7 @@ import sqlite3
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
-import random  # Не забудьте импортировать random для случайного выбора рецептов
+import random
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +88,6 @@ def format_recipe(recipe):
     return recipe_text
 
 def categorize_recipe(recipe_title):
-    """Поиск категории рецепта по ключевым словам"""
     for category, keywords in CATEGORIES.items():
         pattern = r'\b(?:' + '|'.join(re.escape(kw) for kw in keywords) + r')\b'
         if re.search(pattern, recipe_title, re.IGNORECASE):
@@ -101,7 +100,7 @@ def add_user(user_id, username):
 
 def count_users():
     c.execute('SELECT COUNT(*) FROM users')
-    return c.fetchone()[0]  # Исправлено: убрана лишняя скобка
+    return c.fetchone()[0]
 
 def load_feedback():
     try:
@@ -188,61 +187,66 @@ async def handle_feedback(update: Update, context: CallbackContext):
     await query.answer()
 
     data = query.data.split('_')
-    if len(data) != 3 or data[0] != 'feedback':
-        await query.message.reply_text("Ошибка: Неверный индекс обратной связи.")
-        return
-
     recipe_index = int(data[1])
     feedback = data[2]
 
-    # Сохраняем обратную связь
-    feedback_data = load_feedback()
-    feedback_data.setdefault(recipe_index, []).append(feedback)
-    save_feedback(feedback_data)
+    user_feedback = load_feedback()
+    if str(recipe_index) not in user_feedback:
+        user_feedback[str(recipe_index)] = []
+    
+    user_feedback[str(recipe_index)].append(feedback)
+    save_feedback(user_feedback)
 
     await query.message.reply_text("Спасибо за ваш отзыв!")
 
 async def weekly_menu(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
+    await update.callback_query.answer()
 
-    keyboard = []
-    for i in range(7):  # 7 дней недели
-        keyboard.append([InlineKeyboardButton(f"День {i + 1}", callback_data=f'menu_day_{i}')])
+    # Выбор количества блюд
+    keyboard = [
+        [InlineKeyboardButton("7 блюд", callback_data='menu_7')],
+        [InlineKeyboardButton("14 блюд", callback_data='menu_14')],
+        [InlineKeyboardButton("21 блюдо", callback_data='menu_21')],
+        [InlineKeyboardButton("⬅️ Назад", callback_data='back_to_categories')]
+    ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text("Выберите день для меню:", reply_markup=reply_markup)
+    await update.callback_query.message.edit_text("Сколько блюд вы хотите в меню на неделю?", reply_markup=reply_markup)
 
-async def menu_day(update: Update, context: CallbackContext):
+async def generate_weekly_menu(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
-    day = int(query.data.split('_')[-1])
-    menu = []
+    # Получаем количество блюд из данных кнопки
+    number_of_meals = int(query.data.split('_')[1])
+    
+    # Случайный выбор рецептов
+    selected_recipes = random.sample(recipes, min(number_of_meals, len(recipes)))
 
-    # Генерация случайного меню для дня
-    for _ in range(3):  # 3 приема пищи
-        recipe = random.choice(recipes)  # выбираем случайный рецепт
-        menu.append(recipe['title'])
+    # Форматирование меню
+    menu_text = "🍽 **Ваше меню на неделю:**\n\n"
+    for i, recipe in enumerate(selected_recipes, start=1):
+        menu_text += f"{i}. **{recipe['title']}**\n"
 
-    menu_text = f"Меню на день {day + 1}:\n" + "\n".join(menu)
+    # Отправляем меню пользователю
     await query.message.edit_text(menu_text)
 
+async def back_to_categories(update: Update, context: CallbackContext):
+    await start(update, context)
+
 def main():
-    # Загружаем рецепты
-    global recipes
-    recipes = load_recipes()
-    
-    # Запуск бота
-    application = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
+    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(category_button, pattern='^category_'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern='^recipe_'))
-    application.add_handler(CallbackQueryHandler(handle_feedback, pattern='^feedback_'))
-    application.add_handler(CallbackQueryHandler(weekly_menu, pattern='^weekly_menu$'))
-    application.add_handler(CallbackQueryHandler(menu_day, pattern='^menu_day_'))
-    
+    application.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
+    application.add_handler(CallbackQueryHandler(handle_feedback, pattern=r'^feedback_'))
+    application.add_handler(CallbackQueryHandler(weekly_menu, pattern=r'^weekly_menu$'))
+    application.add_handler(CallbackQueryHandler(generate_weekly_menu, pattern=r'^menu_'))
+    application.add_handler(CallbackQueryHandler(back_to_categories, pattern=r'^back_to_categories$'))
+
     application.run_polling()
 
 if __name__ == '__main__':
+    recipes = load_recipes()  # Загрузите рецепты при запуске
     main()
