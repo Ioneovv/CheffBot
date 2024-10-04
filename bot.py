@@ -183,7 +183,7 @@ async def show_favorites(update: Update, context: CallbackContext):
     await update.message.reply_text(favorites_text)
 
 def main():
-    application = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
