@@ -15,6 +15,7 @@ RECIPE_URL = 'https://drive.google.com/uc?id=1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em'
 # Глобальная переменная для хранения рецептов
 recipes = []
 favorites = []
+usage_stats = {}
 
 # Эмодзи для категорий
 CATEGORY_EMOJIS = {
@@ -54,12 +55,10 @@ BUTTONS_PER_PAGE = 5
 # Подключение к базе данных
 conn = sqlite3.connect('users.db')
 c = conn.cursor()
-c.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
-        username TEXT
-    )
-''')
+c.execute('''CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    username TEXT
+)''')
 conn.commit()
 
 def load_recipes():
@@ -178,50 +177,79 @@ async def recipe_button(update: Update, context: CallbackContext):
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text(recipe_text, reply_markup=reply_markup)
         else:
+            await query.message.reply
             await query.message.reply_text("Ошибка: Рецепт не найден.")
-    except Exception as e:
-        logging.error(f"Ошибка при обработке рецепта: {e}")
-        await query.message.reply_text("Произошла ошибка при обработке вашего запроса.")
+    except (IndexError, ValueError):
+        await query.message.reply_text("Ошибка: Неверный индекс рецепта.")
 
-async def add_to_favorites(update: Update, context: CallbackContext):
+async def add_favorite(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
     data = query.data.split('_')
-    if len(data) != 3:
-        await query.message.reply_text("Ошибка: Неверные данные кнопки.")
-        return
-
     recipe_index = int(data[2])
-    favorites.append(recipes[recipe_index])
-    await query.message.reply_text("Рецепт добавлен в Избранное!")
 
-async def show_favorites(update: Update, context: CallbackContext):
-    if not favorites:
-        await update.message.reply_text("Избранное пустое.")
+    if recipe_index < 0 or recipe_index >= len(recipes):
+        await query.message.reply_text("Ошибка: Рецепт не найден.")
         return
 
-    favorite_titles = [f"🍽 {recipe['title']}" for recipe in favorites]
-    await update.message.reply_text("Ваши Избранные рецепты:\n" + "\n".join(favorite_titles))
+    favorite_recipe = recipes[recipe_index]
+    favorites.append(favorite_recipe)
+    await query.message.reply_text(f"Рецепт **{favorite_recipe['title']}** добавлен в избранное!")
 
-async def help_command(update: Update, context: CallbackContext):
-    help_text = "Доступные команды:\n"
-    help_text += "/start - Запустить бота\n"
-    help_text += "/help - Помощь\n"
-    help_text += "Нажмите на кнопку, чтобы начать!"
-    await update.message.reply_text(help_text)
+async def favorites_button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    if not favorites:
+        await query.message.reply_text("Избранное пусто.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_favorite_{i}')] for i, recipe in enumerate(favorites)
+    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Вернуться к меню", callback_data='menu')])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text("Ваши избранные рецепты:", reply_markup=reply_markup)
+
+async def favorite_recipe_button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split('_')
+    recipe_index = int(data[2])
+
+    if recipe_index < 0 or recipe_index >= len(favorites):
+        await query.message.reply_text("Ошибка: Рецепт не найден.")
+        return
+
+    favorite_recipe = favorites[recipe_index]
+    recipe_text = format_recipe(favorite_recipe)
+
+    keyboard = [
+        [InlineKeyboardButton("⬅️ Вернуться к Избранному", callback_data='favorites')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text(recipe_text, reply_markup=reply_markup)
 
 async def main():
+    global recipes
+    recipes = load_recipes()
+
+    # Инициализация приложения
     application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
+    # Регистрация обработчиков
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\w+_\d+'))
-    application.add_handler(CallbackQueryHandler(add_to_favorites, pattern=r'add_favorite_\d+'))
-    application.add_handler(CallbackQueryHandler(show_favorites, pattern=r'favorites'))
+    application.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
+    application.add_handler(CallbackQueryHandler(add_favorite, pattern=r'^add_favorite_'))
+    application.add_handler(CallbackQueryHandler(favorites_button, pattern='favorites'))
+    application.add_handler(CallbackQueryHandler(favorite_recipe_button, pattern=r'^recipe_favorite_'))
 
+    # Запуск бота
     await application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
