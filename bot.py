@@ -1,62 +1,80 @@
+import asyncio
 import json
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import random
+from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Функция для загрузки рецептов из JSON-файла
+# Функция для загрузки рецептов
 async def load_recipes():
     try:
         with open('recipes.json', 'r', encoding='utf-8') as file:
-            return json.load(file)
+            recipes = json.load(file)
+            return recipes
     except Exception as e:
         print(f"Ошибка загрузки или обработки recipes.json: {e}")
-        return []
+        return {}
 
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Добро пожаловать! Используйте /help для получения списка команд.")
-
-# Команда /help
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "Доступные команды:\n"
-        "/start - Запустить бота\n"
-        "/help - Помощь\n"
-        "Введите название рецепта, чтобы найти его."
+# Функция для отправки случайного рецепта
+async def random_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    recipes = await load_recipes()
+    recipe = random.choice(list(recipes.values()))
+    await update.message.reply_text(
+        f"🍽️ **{recipe['name']}**\n\n{recipe['description']}\n\n**Ингредиенты:**\n{recipe['ingredients']}\n\n**Приготовление:**\n{recipe['instructions']}",
+        parse_mode='Markdown'
     )
-    await update.message.reply_text(help_text)
 
-# Поиск рецептов
-async def search_recipes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Функция для поиска рецептов по названию
+async def search_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     recipes = await load_recipes()
     query = update.message.text.lower()
-    matched_recipes = [recipe for recipe in recipes if query in recipe['name'].lower()]
-
-    if matched_recipes:
-        response = "Найдены рецепты:\n" + "\n".join(f"- {recipe['name']}" for recipe in matched_recipes)
+    found_recipes = [r for r in recipes.values() if query in r['name'].lower()]
+    
+    if found_recipes:
+        response = '\n\n'.join([f"🍽️ **{r['name']}**\n{r['description']}" for r in found_recipes])
+        await update.message.reply_text(response, parse_mode='Markdown')
     else:
-        response = "Рецепты не найдены. Попробуйте другое название."
+        await update.message.reply_text("❌ Рецепты не найдены. Попробуйте другой запрос.")
 
-    await update.message.reply_text(response)
+# Функция для начала общения с ботом
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    keyboard = [
+        [InlineKeyboardButton("Случайный рецепт 🍲", callback_data='random_recipe')],
+        [InlineKeyboardButton("Поиск рецепта 🔍", callback_data='search_recipe')],
+        [InlineKeyboardButton("Помощь ❓", callback_data='help')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_html(
+        rf"Привет, {user.mention_html()}! Добро пожаловать в CheffBot! Выберите действие:",
+        reply_markup=reply_markup
+    )
 
-# Подробности о рецепте
-async def recipe_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    recipes = await load_recipes()
-    query = update.message.text.lower()
-    matched_recipes = [recipe for recipe in recipes if query in recipe['name'].lower()]
+# Функция для обработки нажатий кнопок
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-    if matched_recipes:
-        response = "\n\n".join(f"*{recipe['name']}*\n{recipe['preparation']}" for recipe in matched_recipes)
-    else:
-        response = "Рецепт не найден."
+    if query.data == 'random_recipe':
+        await random_recipe(query.message, context)
+    elif query.data == 'search_recipe':
+        await query.message.reply_text("Введите название рецепта, чтобы найти его.")
+    elif query.data == 'help':
+        await query.message.reply_text(
+            "Доступные команды:\n/start - Запустить бота\n/help - Помощь\n/random - Получить случайный рецепт\nВведите название рецепта, чтобы найти его."
+        )
 
-    await update.message.reply_text(response, parse_mode='Markdown')
+# Основная функция для запуска бота
+async def main() -> None:
+    app = Application.builder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", lambda update, context: help_command(update, context)))
+    app.add_handler(CommandHandler("random", random_recipe))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_recipe))
+    app.add_handler(MessageHandler(filters.COMMAND, lambda update, context: update.message.reply_text("Пожалуйста, используйте кнопки.")))
+
+    await app.run_polling()
 
 if __name__ == "__main__":
-    app = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_recipes))
-    app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, recipe_detail))
-
-    app.run_polling()
+    asyncio.run(main())
