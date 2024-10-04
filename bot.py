@@ -148,7 +148,7 @@ async def category_button(update: Update, context: CallbackContext):
     recipes_to_display = recipes_in_category[start_index:end_index]
 
     if not recipes_to_display:
-        await query.message.reply_text("В этой категории нет рецептов.")
+        await query.edit_message_text("В этой категории нет рецептов.")
         return
 
     keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_to_display]
@@ -158,8 +158,10 @@ async def category_button(update: Update, context: CallbackContext):
     if end_index < len(recipes_in_category):
         keyboard.append([InlineKeyboardButton("Вперёд", callback_data=f'category_{category}_{page + 1}')])
 
+    keyboard.append([InlineKeyboardButton("🏠 Домой", callback_data='back_to_home')])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f"Рецепты в категории {category}:", reply_markup=reply_markup)
+    await query.edit_message_text(f"Рецепты в категории {category}:", reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -171,32 +173,12 @@ async def recipe_button(update: Update, context: CallbackContext):
 
     keyboard = [
         [InlineKeyboardButton("🔗 Поделиться", url=f"https://t.me/share/url?url={recipe['title']}")],
-        [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')]
+        [InlineKeyboardButton("🔙 Назад к категориям", callback_data='back_to_categories')],
+        [InlineKeyboardButton("🏠 Домой", callback_data='back_to_home')]
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(recipe_text, reply_markup=reply_markup)
-
-async def handle_back_to_categories(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    await start(query, context)  # Возвращаемся к выбору категорий
-
-async def search_recipes(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text("Введите название рецепта или его ингредиенты:")
-
-async def handle_message(update: Update, context: CallbackContext):
-    query = update.message.text
-    found_recipes = [recipe for recipe in recipes if query.lower() in recipe['title'].lower() or any(query.lower() in ingredient['ingredient'].lower() for ingredient in recipe['ingredients'])]
-
-    if not found_recipes:
-        await update.message.reply_text("Рецепт не найден. Попробуйте другой запрос.")
-    else:
-        keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in found_recipes]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Найденные рецепты:", reply_markup=reply_markup)
+    await query.edit_message_text(recipe_text, reply_markup=reply_markup)
 
 async def main():
     global recipes
