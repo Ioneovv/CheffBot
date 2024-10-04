@@ -178,3 +178,22 @@ async def recipe_button(update: Update, context: CallbackContext):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(recipe_text, reply_markup=reply_markup)
+
+async def main():
+    global recipes
+    recipes = load_recipes()  # Загружаем рецепты один раз при запуске
+
+    application = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()  # Замените на свой токен
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(category_button, pattern=r'category_'))
+    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_'))
+    application.add_handler(CallbackQueryHandler(search_recipes, pattern='search_recipes'))
+    application.add_handler(CallbackQueryHandler(handle_back_to_categories, pattern='back_to_categories'))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    await application.run_polling()
+
+if __name__ == '__main__':
+    asyncio.run(main())
