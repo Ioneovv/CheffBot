@@ -5,7 +5,7 @@ import sqlite3
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
-import asyncio
+import random  # Не забудьте импортировать random для случайного выбора рецептов
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -101,7 +101,7 @@ def add_user(user_id, username):
 
 def count_users():
     c.execute('SELECT COUNT(*) FROM users')
-    return c.fetchone()[0()
+    return c.fetchone()[0]  # Исправлено: убрана лишняя скобка
 
 def load_feedback():
     try:
@@ -152,28 +152,21 @@ async def category_button(update: Update, context: CallbackContext):
     end_index = start_index + BUTTONS_PER_PAGE
     recipes_page = recipes_in_category[start_index:end_index]
 
-    keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{category}_{i + start_index}')] for i, recipe in enumerate(recipes_page)]
-    
+    keyboard = [[InlineKeyboardButton(recipe['title'], callback_data=f'recipe_{recipes.index(recipe)}')] for recipe in recipes_page]
+
+    if start_index > 0:
+        keyboard.append([InlineKeyboardButton("Назад", callback_data=f'category_{category}_{page - 1}')])
     if end_index < len(recipes_in_category):
-        keyboard.append([InlineKeyboardButton("➡️ Следующая страница", callback_data=f'category_{category}_{page + 1}')])
-    if page > 0:
-        keyboard.append([InlineKeyboardButton("⬅️ Предыдущая страница", callback_data=f'category_{category}_{page - 1}')])
+        keyboard.append([InlineKeyboardButton("Вперед", callback_data=f'category_{category}_{page + 1}')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text(f'Рецепты в категории **{category}**:', reply_markup=reply_markup)
+    await query.message.edit_text(f"Рецепты категории: {category}", reply_markup=reply_markup)
 
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
-    data = query.data.split('_')
-    if len(data) != 3 or data[0] != 'recipe':
-        await query.message.reply_text("Ошибка: Неверный индекс рецепта.")
-        return
-
-    category = data[1]
-    recipe_index = int(data[2])
-
+    recipe_index = int(query.data.split('_')[1])
     if recipe_index < 0 or recipe_index >= len(recipes):
         await query.message.reply_text("Ошибка: Индекс рецепта вне диапазона.")
         return
