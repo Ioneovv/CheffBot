@@ -1,9 +1,8 @@
 import logging
 import nest_asyncio
-from telegram import Update, ForceReply
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 import json
-import httpx
 
 nest_asyncio.apply()
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -32,7 +31,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🛠 Доступные команды:\n"
         "/start - Запустить бота\n"
         "/help - Помощь\n"
-        "/search - Найти рецепт по названию\n"
         "/menu - Показать меню рецептов\n"
         "Введите название рецепта для поиска."
     )
@@ -41,12 +39,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Search recipe
 async def search_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.message.text
-    found_recipes = [recipe for recipe in recipes if query.lower() in recipe['name'].lower()]
+    found_recipes = [recipe for recipe in recipes if query.lower() in recipe['title'].lower()]
     
     if found_recipes:
         response_text = "🍽️ Найденные рецепты:\n"
         for recipe in found_recipes:
-            response_text += f"✅ {recipe['name']} - {recipe['description']}\n"
+            response_text += f"✅ {recipe['title']}\n"
         await update.message.reply_text(response_text)
     else:
         await update.message.reply_text("❌ Рецепт не найден. Попробуйте другое название.")
@@ -55,7 +53,7 @@ async def search_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     menu_text = "📋 Меню рецептов:\n"
     for recipe in recipes:
-        menu_text += f"📌 {recipe['name']}\n"
+        menu_text += f"📌 {recipe['title']}\n"
     await update.message.reply_text(menu_text)
 
 # Main function to run the bot
