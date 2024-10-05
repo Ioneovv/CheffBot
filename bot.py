@@ -173,11 +173,23 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe_text = format_recipe(recipe)
     await query.message.reply_text(recipe_text)
 
+async def handle_text(update: Update, context: CallbackContext):
+    # Обработка текстовых сообщений (например, обратная связь)
+    feedback = load_feedback()
+    user_id = update.effective_user.id
+    if user_id not in feedback:
+        feedback[user_id] = []
+    
+    feedback[user_id].append(update.message.text)
+    save_feedback(feedback)
+
+    await update.message.reply_text("Спасибо за ваш отзыв!")
+
 async def main():
     global recipes
     recipes = load_recipes()
     if not recipes:
-        logging.error("Не удалось загрузить рецепты.")
+        print("Не удалось загрузить рецепты. Бот не будет запущен.")
         return
 
     app = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
