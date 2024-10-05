@@ -191,4 +191,9 @@ async def main():
 
 if __name__ == '__main__':
     import asyncio
-    await main()  # Запуск основного цикла без asyncio.run()
+
+    # Создаем асинхронную функцию для запуска основного цикла
+    async def run_bot():
+        await main()
+
+    asyncio.run(run_bot())  # Запуск бота
