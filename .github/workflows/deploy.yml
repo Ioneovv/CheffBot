@@ -24,4 +24,4 @@ jobs:
         pip install -r requirements.txt  # Убедитесь, что у вас есть файл requirements.txt с зависимостями
 
     - name: Run bot
-      run: python your_bot_script.py  # Замените на имя вашего файла бота
+      run: python bot.py  # Замените на правильное имя и путь к вашему файлу бота
