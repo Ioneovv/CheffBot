@@ -1,28 +1,22 @@
 import logging
 import json
 import asyncio
+import aiohttp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Функция для загрузки рецептов из файлов
-def load_recipes():
-    recipes = []
-    for filename in ["recipes_part1.json", "recipes_part2.json"]:
-        try:
-            with open(filename, "r", encoding="utf-8") as file:
-                data = json.load(file)
-                recipes.extend(data)
-                print(f"Файл {filename} загружен успешно!")
-        except FileNotFoundError:
-            print(f"Ошибка: файл {filename} не найден.")
-        except json.JSONDecodeError as e:
-            print(f"Ошибка при чтении {filename}: {e}")
-    return recipes
+# Функция для загрузки рецептов из файла
+async def load_recipes():
+    url = "https://raw.githubusercontent.com/Ioneovv/CheffBot/main/recipes_part1.json"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            response.raise_for_status()  # Поднять исключение, если статус код не 200
+            return await response.json()
 
-recipes = load_recipes()
+recipes = asyncio.run(load_recipes())
 
 # Эмодзи категорий
 CATEGORY_EMOJIS = {
