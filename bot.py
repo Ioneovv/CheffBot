@@ -168,13 +168,13 @@ async def category_button(update: Update, context: CallbackContext):
 async def recipe_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    recipe_index = int(query.data.split('_')[1])
-    recipe = recipes[recipe_index]
+    recipe_id = int(query.data.split('_')[1])
+    recipe = recipes[recipe_id]
+
     recipe_text = format_recipe(recipe)
     await query.message.reply_text(recipe_text)
 
 async def handle_text(update: Update, context: CallbackContext):
-    # Обработка текстовых сообщений (например, обратная связь)
     feedback = load_feedback()
     user_id = update.effective_user.id
     if user_id not in feedback:
@@ -201,5 +201,5 @@ async def main():
     await app.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
