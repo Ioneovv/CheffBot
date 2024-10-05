@@ -4,9 +4,9 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 import asyncio
-import random
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+import io
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -52,8 +52,8 @@ CATEGORIES = {
 # Максимальное количество кнопок на странице
 BUTTONS_PER_PAGE = 5
 
-# Словарь для избранных рецептов
-user_favorites = {}
+# Избранные рецепты
+favorites = []
 
 def load_recipes():
     try:
@@ -71,12 +71,12 @@ def get_categories():
     categories = set(recipe.get('category') for recipe in recipes)
     return sorted(categories)
 
-def format_recipe(recipe, servings=1):
+def format_recipe(recipe):
     recipe_text = f"🍽 **{recipe['title']}**\n\n"
     recipe_text += "📝 **Ингредиенты:**\n"
     for ingredient in recipe.get('ingredients', []):
         amount = ingredient.get('amount', '')
-        recipe_text += f"🔸 {ingredient['ingredient']:20} {amount * servings}\n"
+        recipe_text += f"🔸 {ingredient['ingredient']:20} {amount}\n"
     recipe_text += "\n🧑‍🍳 **Приготовление:**\n"
     for i, step in enumerate(recipe.get('instructions', []), start=1):
         recipe_text += f"{i}. {step}\n"
@@ -90,7 +90,6 @@ def categorize_recipe(recipe_title):
             return category
     return "Неизвестно"
 
-# Команда старт
 async def start(update: Update, context: CallbackContext):
     global recipes
     recipes = load_recipes()
@@ -103,71 +102,6 @@ async def start(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
-# Поиск рецептов по ингредиентам
-async def search_recipes(update: Update, context: CallbackContext):
-    query = update.message.text.split(' ', 1)
-    if len(query) < 2:
-        await update.message.reply_text("Пожалуйста, укажите ингредиенты для поиска.")
-        return
-
-    ingredient = query[1].lower()
-    matching_recipes = [recipe for recipe in recipes if ingredient in [ing['ingredient'].lower() for ing in recipe.get('ingredients', [])]]
-
-    if not matching_recipes:
-        await update.message.reply_text("Рецепты не найдены.")
-        return
-
-    await update.message.reply_text("Найдены рецепты:")
-    for recipe in matching_recipes:
-        await update.message.reply_text(recipe['title'])
-
-# Случайный рецепт
-async def random_recipe(update: Update, context: CallbackContext):
-    if not recipes:
-        await update.message.reply_text("Рецепты не загружены.")
-        return
-    recipe = random.choice(recipes)
-    recipe_text = format_recipe(recipe)
-    await update.message.reply_text(recipe_text, parse_mode='Markdown')
-
-# Добавление в избранное
-async def add_to_favorites(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    recipe_index = int(context.args[0])
-    if user_id not in user_favorites:
-        user_favorites[user_id] = []
-    user_favorites[user_id].append(recipe_index)
-    await update.message.reply_text("Рецепт добавлен в избранное.")
-
-# Показ избранных рецептов
-async def show_favorites(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    if user_id not in user_favorites or not user_favorites[user_id]:
-        await update.message.reply_text("Избранные рецепты пусты.")
-        return
-    for index in user_favorites[user_id]:
-        await update.message.reply_text(recipes[index]['title'])
-
-# Кастомизация порций
-async def customize_servings(update: Update, context: CallbackContext):
-    recipe_index = int(context.args[0])  # Индекс рецепта
-    servings = int(context.args[1]) if len(context.args) > 1 else 1
-    recipe = recipes[recipe_index]
-    recipe_text = format_recipe(recipe, servings)
-    await update.message.reply_text(recipe_text, parse_mode='Markdown')
-
-# Экспорт рецепта в PDF
-async def export_recipe(update: Update, context: CallbackContext):
-    recipe_index = int(context.args[0])
-    recipe = recipes[recipe_index]
-    pdf_file = f"{recipe['title']}.pdf"
-    c = canvas.Canvas(pdf_file, pagesize=letter)
-    c.drawString(100, 750, f"Рецепт: {recipe['title']}")
-    # Добавьте остальные детали рецепта
-    c.save()
-    await update.message.reply_document(open(pdf_file, 'rb'))
-
-# Категория
 async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -176,52 +110,116 @@ async def category_button(update: Update, context: CallbackContext):
     page = int(data[2])
 
     recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
+
+    if not recipes_in_category:
+        await query.message.reply_text("Нет рецептов в этой категории.")
+        return
+
     start_index = page * BUTTONS_PER_PAGE
     end_index = start_index + BUTTONS_PER_PAGE
-    buttons = []
-    for i, recipe in enumerate(recipes_in_category[start_index:end_index], start=start_index):
-        buttons.append([InlineKeyboardButton(recipe['title'], callback_data=f"recipe_{i}")])
+    recipes_page = recipes_in_category[start_index:end_index]
 
-    # Добавляем кнопки навигации
-    nav_buttons = []
-    if start_index > 0:
-        nav_buttons.append(InlineKeyboardButton("Назад", callback_data=f"category_{category}_{page-1}"))
+    keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{category}_{i + start_index}')] for i, recipe in enumerate(recipes_page)]
     if end_index < len(recipes_in_category):
-        nav_buttons.append(InlineKeyboardButton("Вперед", callback_data=f"category_{category}_{page+1}"))
-    if nav_buttons:
-        buttons.append(nav_buttons)
+        keyboard.append([InlineKeyboardButton("➡️ Следующая страница", callback_data=f'category_{category}_{page + 1}')])
 
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await query.edit_message_text(f"Рецепты в категории: {category}", reply_markup=reply_markup)
+    if page > 0:
+        keyboard.append([InlineKeyboardButton("⬅️ Предыдущая страница", callback_data=f'category_{category}_{page - 1}')])
 
-# Обработка рецепта
+    keyboard.append([InlineKeyboardButton("🏠 Домой", callback_data='home')])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text("Выберите рецепт:", reply_markup=reply_markup)
+
 async def recipe_button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    try:
+        data = query.data.split('_')
+        category = data[1]
+        recipe_index = int(data[2])
+        recipes_in_category = [recipe for recipe in recipes if categorize_recipe(recipe['title']) == category]
+
+        if 0 <= recipe_index < len(recipes_in_category):
+            recipe = recipes_in_category[recipe_index]
+            recipe_text = format_recipe(recipe)
+
+            buttons = [
+                [InlineKeyboardButton("⭐ Добавить в избранное", callback_data=f"favorite_{recipe_index}")],
+                [InlineKeyboardButton("📄 Экспорт в PDF", callback_data=f"export_{recipe_index}")],
+                [InlineKeyboardButton("🏠 Домой", callback_data='home')],
+                [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{category}_0')]
+            ]
+            reply_markup = InlineKeyboardMarkup(buttons)
+            await query.message.delete()
+            await query.message.reply_text(recipe_text, parse_mode='Markdown', reply_markup=reply_markup)
+        else:
+            await query.message.reply_text("Ошибка: Рецепт не найден.")
+    except Exception as e:
+        logging.error(f"Ошибка в обработчике кнопки рецепта: {e}")
+        await query.message.reply_text("Произошла ошибка. Попробуйте снова.")
+
+async def favorite_button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    recipe_index = int(query.data.split('_')[1])
+    if recipe_index not in favorites:
+        favorites.append(recipe_index)
+        await query.message.reply_text("Рецепт добавлен в избранное.")
+    else:
+        await query.message.reply_text("Этот рецепт уже в избранном.")
+
+async def show_favorites(update: Update, context: CallbackContext):
+    if not favorites:
+        await update.message.reply_text("Ваш список избранного пуст.")
+        return
+
+    fav_recipes = [recipes[i] for i in favorites]
+    message = "⭐ **Избранные рецепты**\n\n" + "\n".join([f"{i+1}. {recipe['title']}" for i, recipe in enumerate(fav_recipes)])
+    await update.message.reply_text(message)
+
+async def export_to_pdf(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     recipe_index = int(query.data.split('_')[1])
     recipe = recipes[recipe_index]
-    recipe_text = format_recipe(recipe)
-    buttons = [
-        [InlineKeyboardButton("Избранное", callback_data=f"favorite_{recipe_index}")],
-        [InlineKeyboardButton("Экспорт в PDF", callback_data=f"export_{recipe_index}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await query.edit_message_text(recipe_text, parse_mode='Markdown', reply_markup=reply_markup)
 
-# Обработчик команд
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.drawString(100, 750, recipe['title'])
+    y = 700
+    for ingredient in recipe['ingredients']:
+        c.drawString(100, y, f"{ingredient['ingredient']}: {ingredient.get('amount', '')}")
+        y -= 20
+
+    y -= 20
+    for i, step in enumerate(recipe['instructions'], start=1):
+        c.drawString(100, y, f"{i}. {step}")
+        y -= 20
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    await query.message.reply_document(document=buffer, filename=f"{recipe['title']}.pdf")
+
+async def home(update: Update, context: CallbackContext):
+    await start(update, context)
+
 def main():
-    application = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("search", search_recipes))
-    application.add_handler(CommandHandler("random", random_recipe))
-    application.add_handler(CommandHandler("favorite", add_to_favorites))
-    application.add_handler(CommandHandler("favorites", show_favorites))
-    application.add_handler(CommandHandler("servings", customize_servings))
-    application.add_handler(CommandHandler("export", export_recipe))
-    application.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
-    application.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
+    # Создание экземпляра бота
+    app = ApplicationBuilder().token("6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE").build()
 
-    application.run_polling()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("favorites", show_favorites))
+    app.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
+    app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
+    app.add_handler(CallbackQueryHandler(favorite_button, pattern=r'^favorite_'))
+    app.add_handler(CallbackQueryHandler(export_to_pdf, pattern=r'^export_'))
+    app.add_handler(CallbackQueryHandler(home, pattern='^home'))
+
+    # Запуск бота
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
