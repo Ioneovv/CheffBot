@@ -1,12 +1,12 @@
 name: Run Telegram Bot
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"  # Каждые 10 минут
-  workflow_dispatch:
+  push:
+    branches:
+      - main  # Замените на вашу основную ветку, если это необходимо
 
 jobs:
-  run:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,13 +16,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.9'  # Убедитесь, что версия Python соответствует вашей
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install python-telegram-bot aiohttp
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt  # Убедитесь, что у вас есть файл requirements.txt с зависимостями
 
-    - name: Run Bot
-      run: |
-        python bot.py
+    - name: Run bot
+      run: python your_bot_script.py  # Замените на имя вашего файла бота
