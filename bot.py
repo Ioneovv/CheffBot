@@ -7,19 +7,19 @@ from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, Ca
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Функция для загрузки рецептов из файлов
+# Функция для загрузки рецептов из файла
 def load_recipes():
     recipes = []
-    for filename in ["recipes_part1.json", "recipes_part2.json"]:
-        try:
-            with open(filename, "r", encoding="utf-8") as file:
-                data = json.load(file)
-                recipes.extend(data)
-                print(f"Файл {filename} загружен успешно!")
-        except FileNotFoundError:
-            print(f"Ошибка: файл {filename} не найден.")
-        except json.JSONDecodeError as e:
-            print(f"Ошибка при чтении {filename}: {e}")
+    filename = "recipes_part1.json"  # Заменяем на нужный файл
+    try:
+        with open(filename, "r", encoding="utf-8") as file:
+            data = json.load(file)
+            recipes.extend(data)
+            print(f"Файл {filename} загружен успешно!")
+    except FileNotFoundError:
+        print(f"Ошибка: файл {filename} не найден.")
+    except json.JSONDecodeError as e:
+        print(f"Ошибка при чтении {filename}: {e}")
     return recipes
 
 recipes = load_recipes()
