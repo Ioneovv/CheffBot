@@ -8,26 +8,14 @@ from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, Ca
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Функция для загрузки рецептов из файлов
+# Функция для загрузки рецептов из файла
 async def load_recipes():
-    recipes = []
-    urls = [
-        "https://raw.githubusercontent.com/Ioneovv/CheffBot/main/recipes_part1.json",
-        "https://raw.githubusercontent.com/Ioneovv/CheffBot/main/recipes_part2.json"
-    ]
-
+    url = "https://raw.githubusercontent.com/Ioneovv/CheffBot/main/recipes_part1.json"
     async with aiohttp.ClientSession() as session:
-        for url in urls:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    recipes.extend(data)
-                    print(f"Файл {url} загружен успешно!")
-                else:
-                    print(f"Ошибка загрузки {url}: {response.status}")
-    return recipes
+        async with session.get(url) as response:
+            response.raise_for_status()  # Поднять исключение, если статус код не 200
+            return await response.json()
 
-# Загружаем рецепты
 recipes = asyncio.run(load_recipes())
 
 # Эмодзи категорий
