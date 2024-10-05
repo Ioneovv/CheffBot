@@ -1,28 +1,28 @@
 import logging
-import re
 import json
-import requests
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
-import asyncio
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Загрузка рецептов из двух файлов
-recipes = []
-try:
-    with open("recipes_part1.json", "r", encoding="utf-8") as file1:
-        recipes.extend(json.load(file1))
-        print("Часть 1 файла загружена успешно!")
+# Функция для загрузки рецептов из файлов
+def load_recipes():
+    recipes = []
+    for filename in ["recipes_part1.json", "recipes_part2.json"]:
+        try:
+            with open(filename, "r", encoding="utf-8") as file:
+                data = json.load(file)
+                recipes.extend(data)
+                print(f"Файл {filename} загружен успешно!")
+        except FileNotFoundError:
+            print(f"Ошибка: файл {filename} не найден.")
+        except json.JSONDecodeError as e:
+            print(f"Ошибка при чтении {filename}: {e}")
+    return recipes
 
-    with open("recipes_part2.json", "r", encoding="utf-8") as file2:
-        recipes.extend(json.load(file2))
-        print("Часть 2 файла загружена успешно!")
-except json.JSONDecodeError as e:
-    print(f"Ошибка при чтении JSON: {e}")
-except FileNotFoundError as e:
-    print(f"Файл не найден: {e}")
+recipes = load_recipes()
 
 # Эмодзи категорий
 CATEGORY_EMOJIS = {
@@ -37,35 +37,35 @@ user_data = {}
 async def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     user_data[user_id] = {'favorites': [], 'history': []}
-    
+
     categories = set(recipe.get('category') for recipe in recipes)
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(cat, '🍴')} {cat}", callback_data=f'category_{cat}_0')] for cat in sorted(categories)]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
+
     await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
 # Команда для показа избранного
 async def show_favorites(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     favorites = user_data.get(user_id, {}).get('favorites', [])
-    
+
     if favorites:
         message = "Ваши избранные рецепты:\n\n" + "\n".join(f"🍽 {r['title']}" for r in favorites)
     else:
         message = "У вас пока нет избранных рецептов."
-    
+
     await update.message.reply_text(message)
 
 # Поиск рецептов по ингредиентам
 async def search_recipes(update: Update, context: CallbackContext):
     query = ' '.join(context.args)
     matched_recipes = [r for r in recipes if any(query.lower() in i.lower() for i in r.get('ingredients', []))]
-    
+
     if matched_recipes:
         result = "Найденные рецепты:\n\n" + "\n".join(f"🍽 {r['title']}" for r in matched_recipes)
     else:
         result = "Рецептов по вашим ингредиентам не найдено."
-    
+
     await update.message.reply_text(result)
 
 # Добавление рецептов в избранное
@@ -73,7 +73,7 @@ async def add_to_favorites(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     query = update.callback_query
     recipe_index = int(query.data.split('_')[2])
-    
+
     recipe = recipes[recipe_index]
     if recipe not in user_data[user_id]['favorites']:
         user_data[user_id]['favorites'].append(recipe)
@@ -86,7 +86,7 @@ async def rate_recipe(update: Update, context: CallbackContext):
     query = update.callback_query
     recipe_index = int(query.data.split('_')[2])
     rating = int(query.data.split('_')[3])
-    
+
     recipes[recipe_index]['rating'] = rating
     await query.answer(f"Вы оценили рецепт на {rating} звёзд!")
 
@@ -94,19 +94,19 @@ async def rate_recipe(update: Update, context: CallbackContext):
 async def show_history(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     history = user_data.get(user_id, {}).get('history', [])
-    
+
     if history:
         message = "Ваша история просмотров:\n\n" + "\n".join(f"🍽 {r['title']}" for r in history)
     else:
         message = "История просмотров пуста."
-    
+
     await update.message.reply_text(message)
 
 # Основная логика (категории, рецепты)
 async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
     category = query.data.split('_')[1]
-    
+
     recipes_in_category = [recipe for recipe in recipes if recipe.get('category') == category]
     if recipes_in_category:
         keyboard = [[InlineKeyboardButton(f"🍽 {recipe['title']}", callback_data=f'recipe_{i}')] for i, recipe in enumerate(recipes_in_category)]
@@ -117,13 +117,13 @@ async def category_button(update: Update, context: CallbackContext):
 async def show_recipe(update: Update, context: CallbackContext):
     query = update.callback_query
     recipe_index = int(query.data.split('_')[1])
-    
+
     recipe = recipes[recipe_index]
     recipe_text = f"🍽 **{recipe['title']}**\n\nИнгредиенты:\n" + "\n".join(f"- {i}" for i in recipe.get('ingredients', [])) + "\n\nПриготовление:\n" + "\n".join(f"{i+1}. {s}" for i, s in enumerate(recipe.get('instructions', [])))
-    
+
     user_id = update.effective_user.id
     user_data[user_id]['history'].append(recipe)
-    
+
     await query.message.reply_text(recipe_text)
 
 # Команда /menu для навигации
