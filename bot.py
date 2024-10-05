@@ -181,19 +181,13 @@ async def main():
         return
 
     app = ApplicationBuilder().token('6953692387:AAEm-p8VtfqdmkHtbs8hxZWS-XNkdRN2lRE').build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
     app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
-    app.add_handler(CallbackQueryHandler(show_main_menu, pattern='main_menu'))  # Обработчик для возврата в главное меню
-
+    app.add_handler(CallbackQueryHandler(show_main_menu, pattern='main_menu'))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     await app.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
-
-    # Создаем асинхронную функцию для запуска основного цикла
-    async def run_bot():
-        await main()
-
-    asyncio.run(run_bot())  # Запуск бота
+    asyncio.run(main())
