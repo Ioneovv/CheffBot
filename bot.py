@@ -173,9 +173,6 @@ async def recipe_button(update: Update, context: CallbackContext):
     recipe_text = format_recipe(recipe)
     await query.message.reply_text(recipe_text)
 
-async def main_menu(update: Update, context: CallbackContext):
-    await show_main_menu(update)
-
 async def main():
     global recipes
     recipes = load_recipes()
@@ -188,10 +185,10 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(category_button, pattern=r'category_\w+_\d+'))
     app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'recipe_\d+'))
-    app.add_handler(CallbackQueryHandler(main_menu, pattern='main_menu'))  # Обработчик для возврата в главное меню
+    app.add_handler(CallbackQueryHandler(show_main_menu, pattern='main_menu'))  # Обработчик для возврата в главное меню
 
     await app.run_polling()
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main())
+    await main()  # Запуск основного цикла без asyncio.run()
