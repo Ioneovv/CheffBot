@@ -1,4 +1,5 @@
 import logging
+import re
 import json
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,13 +11,18 @@ logging.basicConfig(level=logging.INFO)
 
 # Загрузка рецептов из двух файлов
 recipes = []
-for part in ['recipes_part1.json', 'recipes_part2.json']:
-    with open(part, "r", encoding="utf-8") as file:
-        try:
-            recipes += json.load(file)  # Объединяем рецепты
-            print(f"{part} загружен успешно!")
-        except json.JSONDecodeError as e:
-            print(f"Ошибка при чтении {part}: {e}")
+try:
+    with open("recipes_part1.json", "r", encoding="utf-8") as file1:
+        recipes.extend(json.load(file1))
+        print("Часть 1 файла загружена успешно!")
+
+    with open("recipes_part2.json", "r", encoding="utf-8") as file2:
+        recipes.extend(json.load(file2))
+        print("Часть 2 файла загружена успешно!")
+except json.JSONDecodeError as e:
+    print(f"Ошибка при чтении JSON: {e}")
+except FileNotFoundError as e:
+    print(f"Файл не найден: {e}")
 
 # Эмодзи категорий
 CATEGORY_EMOJIS = {
