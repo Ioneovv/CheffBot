@@ -9,7 +9,7 @@ import asyncio
 logging.basicConfig(level=logging.INFO)
 
 # Путь к файлу с рецептами
-RECIPE_FILE = 'recipes_part1.json'
+RECIPE_FILE = 'https://drive.google.com/file/d/1xHKBF9dBVJBqeO-tT6CxCgAx34TG46em/view?usp=drive_link'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
