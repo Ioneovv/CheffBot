@@ -100,7 +100,11 @@ async def start(update: Update, context: CallbackContext):
     categories = get_categories()
     keyboard = [[InlineKeyboardButton(f"{CATEGORY_EMOJIS.get(category, '🍴')} {category}", callback_data=f'category_{category}_0')] for category in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
+
+    if update.message:
+        await update.message.reply_text('Выберите категорию рецептов:', reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.message.edit_text('Выберите категорию рецептов:', reply_markup=reply_markup)
 
 async def category_button(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -163,12 +167,14 @@ async def recipe_button(update: Update, context: CallbackContext):
 async def favorite_button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
+
     recipe_index = int(query.data.split('_')[1])
-    if recipe_index not in favorites:
+    if recipe_index in favorites:
+        favorites.remove(recipe_index)
+        await query.message.reply_text("Рецепт удален из избранного.")
+    else:
         favorites.append(recipe_index)
         await query.message.reply_text("Рецепт добавлен в избранное.")
-    else:
-        await query.message.reply_text("Этот рецепт уже в избранном.")
 
 async def show_favorites(update: Update, context: CallbackContext):
     if not favorites:
@@ -204,7 +210,9 @@ async def export_to_pdf(update: Update, context: CallbackContext):
     await query.message.reply_document(document=buffer, filename=f"{recipe['title']}.pdf")
 
 async def home(update: Update, context: CallbackContext):
-    await start(update, context)
+    # Обрабатываем случай, когда функция вызывается из callback_query
+    if update.callback_query:
+        await start(update, context)
 
 def main():
     # Создание экземпляра бота
