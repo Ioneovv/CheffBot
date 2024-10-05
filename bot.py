@@ -1,5 +1,4 @@
 import logging
-import re
 import json
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,13 +8,15 @@ import asyncio
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-with open("recipes.json", "r", encoding="utf-8") as file:
-    try:
-        recipes = json.load(file)
-        print("Файл загружен успешно!")
-    except json.JSONDecodeError as e:
-        print(f"Ошибка при чтении JSON: {e}")
-
+# Загрузка рецептов из двух файлов
+recipes = []
+for part in ['recipes_part1.json', 'recipes_part2.json']:
+    with open(part, "r", encoding="utf-8") as file:
+        try:
+            recipes += json.load(file)  # Объединяем рецепты
+            print(f"{part} загружен успешно!")
+        except json.JSONDecodeError as e:
+            print(f"Ошибка при чтении {part}: {e}")
 
 # Эмодзи категорий
 CATEGORY_EMOJIS = {
