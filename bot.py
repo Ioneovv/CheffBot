@@ -9,9 +9,13 @@ import asyncio
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Загрузка рецептов из recipes.json
-with open('recipes.json', 'r', encoding='utf-8') as file:
-    recipes = json.load(file)
+with open("recipes.json", "r", encoding="utf-8") as file:
+    try:
+        recipes = json.load(file)
+        print("Файл загружен успешно!")
+    except json.JSONDecodeError as e:
+        print(f"Ошибка при чтении JSON: {e}")
+
 
 # Эмодзи категорий
 CATEGORY_EMOJIS = {
