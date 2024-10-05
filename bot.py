@@ -4,9 +4,6 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, CallbackQueryHandler
 import asyncio
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import io
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -151,7 +148,7 @@ async def recipe_button(update: Update, context: CallbackContext):
 
             buttons = [
                 [InlineKeyboardButton("⭐ Добавить в избранное", callback_data=f"favorite_{recipe_index}")],
-                [InlineKeyboardButton("📄 Экспорт в PDF", callback_data=f"export_{recipe_index}")],
+                [InlineKeyboardButton("🔗 Поделиться рецептом", callback_data=f"share_{recipe_index}")],
                 [InlineKeyboardButton("🏠 Домой", callback_data='home')],
                 [InlineKeyboardButton("⬅️ Назад", callback_data=f'category_{category}_0')]
             ]
@@ -185,29 +182,15 @@ async def show_favorites(update: Update, context: CallbackContext):
     message = "⭐ **Избранные рецепты**\n\n" + "\n".join([f"{i+1}. {recipe['title']}" for i, recipe in enumerate(fav_recipes)])
     await update.message.reply_text(message)
 
-async def export_to_pdf(update: Update, context: CallbackContext):
+async def share_recipe(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
+
     recipe_index = int(query.data.split('_')[1])
     recipe = recipes[recipe_index]
-
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    c.drawString(100, 750, recipe['title'])
-    y = 700
-    for ingredient in recipe['ingredients']:
-        c.drawString(100, y, f"{ingredient['ingredient']}: {ingredient.get('amount', '')}")
-        y -= 20
-
-    y -= 20
-    for i, step in enumerate(recipe['instructions'], start=1):
-        c.drawString(100, y, f"{i}. {step}")
-        y -= 20
-
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    await query.message.reply_document(document=buffer, filename=f"{recipe['title']}.pdf")
+    recipe_text = format_recipe(recipe)
+    
+    await query.message.reply_text(f"Поделитесь этим рецептом:\n\n{recipe_text}")
 
 async def home(update: Update, context: CallbackContext):
     # Обрабатываем случай, когда функция вызывается из callback_query
@@ -223,7 +206,7 @@ def main():
     app.add_handler(CallbackQueryHandler(category_button, pattern=r'^category_'))
     app.add_handler(CallbackQueryHandler(recipe_button, pattern=r'^recipe_'))
     app.add_handler(CallbackQueryHandler(favorite_button, pattern=r'^favorite_'))
-    app.add_handler(CallbackQueryHandler(export_to_pdf, pattern=r'^export_'))
+    app.add_handler(CallbackQueryHandler(share_recipe, pattern=r'^share_'))
     app.add_handler(CallbackQueryHandler(home, pattern='^home'))
 
     # Запуск бота
