@@ -1,41 +1,43 @@
 import json
+import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import nest_asyncio
+import asyncio
 
-# Функция для загрузки рецептов из файлов
-def load_recipes():
-    recipes = []
-    for filename in ["recipes_part1.json", "recipes_part2.json"]:
-        try:
-            with open(filename, "r", encoding="utf-8") as file:
-                data = json.load(file)
-                recipes.extend(data)
-                print(f"Файл {filename} загружен успешно!")
-        except FileNotFoundError:
-            print(f"Ошибка: файл {filename} не найден.")
-        except json.JSONDecodeError as e:
-            print(f"Ошибка при чтении {filename}: {e}")
-    return recipes
+# Включаем nest_asyncio, чтобы избежать конфликта с циклом событий
+nest_asyncio.apply()
 
-# Функция для обработки команды /start
+# Настройка логирования
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Загружаем рецепты из JSON файла
+def load_recipes(filename):
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            recipes = json.load(file)
+            return recipes
+    except Exception as e:
+        logger.error(f"Ошибка при чтении {filename}: {e}")
+        return []
+
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я бот для рецептов. Используйте команду /recipe для получения рецепта.")
+    await update.message.reply_text("Добро пожаловать в Кулинарного Бота! Используйте /recipe, чтобы получить рецепт.")
 
-# Функция для обработки команды /recipe
+# Команда /recipe
 async def recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    recipes = load_recipes()
-    if recipes:
-        # Просто отправим первый рецепт для примера
-        recipe = recipes[0]
-        response = f"**{recipe['title']}**\n*Категория:* {recipe['category']}\n\n**Ингредиенты:**\n"
-        for ingredient in recipe['ingredients']:
-            response += f"- {ingredient['ingredient']}: {ingredient['amount']}\n"
-        response += "\n**Инструкция:**\n"
-        for step in recipe['instructions']:
-            response += f"- {step}\n"
-        await update.message.reply_text(response, parse_mode='Markdown')
-    else:
-        await update.message.reply_text("Извините, рецепты не найдены.")
+    recipes = load_recipes("recipes_part1.json")
+    if not recipes:
+        await update.message.reply_text("Не удалось загрузить рецепты.")
+        return
+    
+    # Отправляем список рецептов
+    message = "Доступные рецепты:\n\n"
+    for index, recipe in enumerate(recipes):
+        message += f"{index + 1}. {recipe['title']}\n"
+    await update.message.reply_text(message)
 
 # Главная функция
 async def main():
@@ -47,5 +49,7 @@ async def main():
     await application.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "This event loo
