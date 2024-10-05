@@ -9,7 +9,7 @@ import asyncio
 logging.basicConfig(level=logging.INFO)
 
 # Путь к файлу с рецептами
-RECIPE_FILE = 'recipes.json'
+RECIPE_FILE = 'recipes_part1.json'
 
 # Глобальная переменная для хранения рецептов
 recipes = []
